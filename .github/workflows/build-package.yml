@@ -10,19 +10,19 @@ on:
 
 jobs:
   BUILD_PACKAGE:
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     env:
         BUILD_PACKAGE: true
     runs-on:
       - ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
-      - uses: 'google-github-actions/auth@v2'
-        with:
-          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          version: '430.0.0'
-      - run: gcloud info
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Set up Go 1.22
         uses: actions/setup-go@v5
         with:
@@ -64,7 +64,6 @@ jobs:
           harbor_builds_bucket="harbor-builds"
           harbor_releases_bucket="harbor-releases"
           harbor_ci_pipeline_store_bucket="harbor-ci-pipeline-store/latest"
-          # the target release version is the version of next release(RC or GA). It needs to be updated on creating new release branch.
           target_release_version=$(cat ./VERSION)
           Harbor_Package_Version=$target_release_version-'build.'$GITHUB_RUN_NUMBER
 
@@ -89,30 +88,36 @@ jobs:
           else
             build_base_params=" BUILD_BASE=true PUSHBASEIMAGE=true REGISTRYUSER=\"${{ secrets.DOCKER_HUB_USERNAME }}\" REGISTRYPASSWORD=\"${{ secrets.DOCKER_HUB_PASSWORD }}\""
           fi
-          sudo make package_offline GOBUILDTAGS="include_oss include_gcs" BASEIMAGETAG=${Harbor_Build_Base_Tag} VERSIONTAG=${Harbor_Assets_Version} PKGVERSIONTAG=${Harbor_Package_Version} TRIVYFLAG=true HTTPPROXY= ${build_base_params}
-          sudo make package_online GOBUILDTAGS="include_oss include_gcs" BASEIMAGETAG=${Harbor_Build_Base_Tag} VERSIONTAG=${Harbor_Assets_Version} PKGVERSIONTAG=${Harbor_Package_Version} TRIVYFLAG=true HTTPPROXY= ${build_base_params}
-          harbor_offline_build_bundle=$(basename harbor-offline-installer-*.tgz)
-          harbor_online_build_bundle=$(basename harbor-online-installer-*.tgz)
+          sudo make package_offline GOBUILDTAGS="include_oss include_gcs" \
+            BASEIMAGETAG=${Harbor_Build_Base_Tag} \
+            VERSIONTAG=${Harbor_Assets_Version} \
+            PKGVERSIONTAG=${Harbor_Package_Version} \
+            TRIVYFLAG=true \
+            HTTPPROXY= \
+            BUILDARCH=${{ matrix.arch }} \
+            ${build_base_params}
+          sudo make package_online GOBUILDTAGS="include_oss include_gcs" \
+            BASEIMAGETAG=${Harbor_Build_Base_Tag} \
+            VERSIONTAG=${Harbor_Assets_Version} \
+            PKGVERSIONTAG=${Harbor_Package_Version} \
+            TRIVYFLAG=true \
+            HTTPPROXY= \
+            BUILDARCH=${{ matrix.arch }} \
+            ${build_base_params}
+          harbor_offline_build_bundle=$(basename harbor-offline-installer-*-${{ matrix.arch }}.tgz)
+          harbor_online_build_bundle=$(basename harbor-online-installer-*-${{ matrix.arch }}.tgz)
           echo "Package name is: $harbor_offline_build_bundle"
           echo "Package name is: $harbor_online_build_bundle"
 
           source tests/ci/build_util.sh
-          cp ${harbor_offline_build_bundle}                 harbor-offline-installer-latest.tgz
-          cp ${harbor_online_build_bundle}                  harbor-online-installer-latest.tgz
-          uploader ${harbor_offline_build_bundle}           $harbor_target_bucket
-          uploader ${harbor_online_build_bundle}            $harbor_target_bucket
-          uploader harbor-offline-installer-latest.tgz      $harbor_target_bucket
-          uploader harbor-online-installer-latest.tgz       $harbor_target_bucket
+          cp ${harbor_offline_build_bundle} harbor-offline-installer-latest-${{ matrix.arch }}.tgz
+          cp ${harbor_online_build_bundle} harbor-online-installer-latest-${{ matrix.arch }}.tgz
+          uploader ${harbor_offline_build_bundle} $harbor_target_bucket/${{ matrix.arch }}
+          uploader ${harbor_online_build_bundle} $harbor_target_bucket/${{ matrix.arch }}
+          uploader harbor-offline-installer-latest-${{ matrix.arch }}.tgz $harbor_target_bucket/${{ matrix.arch }}
+          uploader harbor-online-installer-latest-${{ matrix.arch }}.tgz $harbor_target_bucket/${{ matrix.arch }}
           echo "BUILD_BUNDLE=$harbor_offline_build_bundle" >> $GITHUB_ENV
 
           publishImage $target_branch $Harbor_Assets_Version "${{ secrets.DOCKER_HUB_USERNAME }}" "${{ secrets.DOCKER_HUB_PASSWORD }}"
 
-      - name: Slack Notification
-        uses: sonots/slack-notice-action@v3
-        with:
-          status: ${{ job.status }}
-          title: Build Package - ${{ env.BUILD_BUNDLE }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-        if: always()
+
