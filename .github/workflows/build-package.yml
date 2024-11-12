@@ -113,12 +113,13 @@ jobs:
           ls -l
           cp ${harbor_offline_build_bundle} harbor-offline-installer-latest-${{ matrix.arch }}.tgz
           cp ${harbor_online_build_bundle} harbor-online-installer-latest-${{ matrix.arch }}.tgz
-          uploader ${harbor_offline_build_bundle} $harbor_target_bucket/${{ matrix.arch }}
-          uploader ${harbor_online_build_bundle} $harbor_target_bucket/${{ matrix.arch }}
-          uploader harbor-offline-installer-latest-${{ matrix.arch }}.tgz $harbor_target_bucket/${{ matrix.arch }}
-          uploader harbor-online-installer-latest-${{ matrix.arch }}.tgz $harbor_target_bucket/${{ matrix.arch }}
-          echo "BUILD_BUNDLE=$harbor_offline_build_bundle" >> $GITHUB_ENV
-
-          publishImage $target_branch $Harbor_Assets_Version "${{ secrets.DOCKER_HUB_USERNAME }}" "${{ secrets.DOCKER_HUB_PASSWORD }}"
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: harbor-installers-${{ matrix.arch }}
+          path: |
+            harbor-offline-installer-*.tgz
+            harbor-online-installer-*.tgz
+          retention-days: 5  # 可选：设置保留天数
 
 
