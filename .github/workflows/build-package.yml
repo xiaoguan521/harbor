@@ -104,8 +104,8 @@ jobs:
             HTTPPROXY= \
             BUILDARCH=${{ matrix.arch }} \
             ${build_base_params}
-          harbor_offline_build_bundle=$(basename harbor-offline-installer-${{ matrix.arch }}.tgz)
-          harbor_online_build_bundle=$(basename harbor-online-installer-${{ matrix.arch }}.tgz)
+          harbor_offline_build_bundle=$(basename harbor-offline-installer-v2.13.0-build.4.tgz)
+          harbor_online_build_bundle=$(basename harbor-online-installer-v2.13.0-build.4.tgz)
           echo "Package name is: $harbor_offline_build_bundle"
           echo "Package name is: $harbor_online_build_bundle"
 
