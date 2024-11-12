@@ -118,8 +118,8 @@ jobs:
         with:
           name: harbor-installers-${{ matrix.arch }}
           path: |
-            harbor-offline-installer-*.tgz
-            harbor-online-installer-*.tgz
-          retention-days: 5  # 可选：设置保留天数
+            src/github.com/goharbor/harbor/harbor-offline-installer-*.tgz
+            src/github.com/goharbor/harbor/harbor-online-installer-*.tgz
+          retention-days: ${{ github.ref == 'refs/heads/main' && 5 || 30 }}
 
 
