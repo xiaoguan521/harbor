@@ -12,7 +12,7 @@ jobs:
   BUILD_PACKAGE:
     strategy:
       matrix:
-        arch: [arm64]
+        arch: [amd64,arm64]
     env:
         BUILD_PACKAGE: true
     runs-on:
