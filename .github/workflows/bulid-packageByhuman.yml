@@ -94,6 +94,8 @@ jobs:
           # 设置环境变量
           export BUILDARCH=arm64
           export PLATFORM=linux/arm64
+          export DOCKERBUILD='docker buildx build --platform linux/arm64 --load'
+          export DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull'
           
           # 构建基础镜像
           sudo make build_base_docker -e BUILDARCH=${{ github.event.inputs.arch }} PLATFORM=linux/arm64
@@ -102,8 +104,6 @@ jobs:
           sudo make package_offline GOBUILDTAGS="include_oss" \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
-            DOCKERBUILD=\"docker buildx build --platform linux/arm64 --load\" \
-            DOCKERBUILD_WITH_PULL_PARA=\"docker buildx build --platform linux/arm64 --load --pull\" \
             PKGVERSIONTAG=${{ github.event.inputs.version }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
             PLATFORM=linux/arm64 \
