@@ -1,7 +1,29 @@
-name: "Build Harbor Package Workflow"
+name: "Build Harbor Package by Humam"
 env:
   DOCKER_COMPOSE_VERSION: 1.29.2
-
+on: 
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Harbor version (e.g., v2.2.2)'
+        required: true
+        default: 'v2.12.0'
+      ref_type:
+        description: 'Reference type'
+        required: true
+        default: 'tag'
+        type: choice
+        options:
+          - tag
+          - branch
+      arch:
+        description: 'Build architecture'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - amd64
 jobs:
   BUILD_PACKAGE:
     runs-on: ubuntu-20.04
