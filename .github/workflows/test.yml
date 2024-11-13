@@ -16,17 +16,9 @@ jobs:
 
       - name: Test ARM64 Build
         run: |
-          # 拉取并检查 ARM64 镜像
-          echo "=== Pull ARM64 Alpine ==="
-          docker pull --platform linux/arm64 alpine:latest
-          
-          echo "=== Check Pulled Image ==="
-          docker inspect alpine:latest | grep -A 3 "Architecture"
-          
           # 创建简单测试
           cat > Dockerfile << 'EOF'
           FROM --platform=linux/arm64 alpine:latest
-          RUN apk add --no-cache uname
           RUN uname -m > /arch.txt
           CMD cat /arch.txt
           EOF
@@ -46,16 +38,3 @@ jobs:
           
           echo "=== Run Test Container ==="
           docker run --rm arm64test:latest
-
-      - name: Additional Verification
-        run: |
-          echo "=== System Architecture ==="
-          uname -m
-          
-          echo "=== Docker Info ==="
-          docker version
-          docker info
-          
-          echo "=== QEMU Status ==="
-          ls -l /proc/sys/fs/binfmt_misc/qemu*
-          cat /proc/sys/fs/binfmt_misc/qemu-aarch64
