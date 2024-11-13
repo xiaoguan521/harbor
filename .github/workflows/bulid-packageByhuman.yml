@@ -63,80 +63,94 @@ jobs:
           
           # prepare base
           echo "Building prepare base image..."
-          make -f make/photon/Makefile build_prepare_base \
+          make -f make/photon/Makefile _build_prepare \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # db base
           echo "Building db base image..."
-          make -f make/photon/Makefile build_db_base \
+          make -f make/photon/Makefile _build_db \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # redis base
           echo "Building redis base image..."
-          make -f make/photon/Makefile _build_redis_base \
+          make -f make/photon/Makefile _build_redis \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+
+           # nginx base
+          echo "Building nginx base image..."
+          make -f make/photon/Makefile _build_nginx \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"  
           
           # registry base
           echo "Building registry base image..."
-          make -f make/photon/Makefile _build_registry_base \
+          make -f make/photon/Makefile _build_registry \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # registryctl base
           echo "Building registryctl base image..."
-          make -f make/photon/Makefile _build_registryctl_base \
+          make -f make/photon/Makefile _build_registryctl \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # portal base
           echo "Building portal base image..."
-          make -f make/photon/Makefile _build_portal_base \
+          make -f make/photon/Makefile _build_portal \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # core base
           echo "Building core base image..."
-          make -f make/photon/Makefile _build_core_base \
+          make -f make/photon/Makefile _build_core \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # jobservice base
           echo "Building jobservice base image..."
-          make -f make/photon/Makefile _build_jobservice_base \
+          make -f make/photon/Makefile _build_jobservice \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # log base
           echo "Building log base image..."
-          make -f make/photon/Makefile _build_log_base \
+          make -f make/photon/Makefile _build_log \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # trivy base
           echo "Building trivy base image..."
-          make -f make/photon/Makefile _build_trivy_adapter_base \
+          make -f make/photon/Makefile _build_trivy_adapter \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # exporter base
           echo "Building exporter base image..."
-          make -f make/photon/Makefile _build_exporter_base \
+          make -f make/photon/Makefile _compile_and_build_exporter \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # standalone db migrator
+          echo "Building standalone db migrator image..."
+          make -f make/photon/Makefile _build_standalone_db_migrator \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"  
 
       - name: Build Component Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'component_only'
