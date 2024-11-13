@@ -43,27 +43,95 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Base Images
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
         run: |
           # 构建所有基础镜像
           echo "=== Building Base Images ==="
-          components="prepare registry registryctl portal core jobservice proxy log db redis trivy exporter"
-          for component in $components; do
-            echo "Building ${component} base image..."
-            make -f make/photon/Makefile _build_${component}_base \
-              PLATFORM=linux/arm64 \
-              BUILDARCH=arm64 \
-              DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-              DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull" \
-              BASEIMAGENAMESPACE=goharbor \
-              BASEIMAGETAG=v2.12.0
-          done
+          
+          # prepare base
+          echo "Building prepare base image..."
+          make -f make/photon/Makefile _build_prepare_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # db base
+          echo "Building db base image..."
+          make -f make/photon/Makefile _build_db_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # redis base
+          echo "Building redis base image..."
+          make -f make/photon/Makefile _build_redis_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # registry base
+          echo "Building registry base image..."
+          make -f make/photon/Makefile _build_registry_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # registryctl base
+          echo "Building registryctl base image..."
+          make -f make/photon/Makefile _build_registryctl_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # portal base
+          echo "Building portal base image..."
+          make -f make/photon/Makefile _build_portal_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # core base
+          echo "Building core base image..."
+          make -f make/photon/Makefile _build_core_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # jobservice base
+          echo "Building jobservice base image..."
+          make -f make/photon/Makefile _build_jobservice_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # log base
+          echo "Building log base image..."
+          make -f make/photon/Makefile _build_log_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # trivy base
+          echo "Building trivy base image..."
+          make -f make/photon/Makefile _build_trivy_adapter_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
+          
+          # exporter base
+          echo "Building exporter base image..."
+          make -f make/photon/Makefile _build_exporter_base \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
 
       - name: Build Component Images
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'component_only'
         run: |
-          # 构建所有组件镜像
+          # 构建组件镜像
           echo "=== Building Component Images ==="
-          components="prepare registry registryctl portal core jobservice proxy log db redis trivy exporter"
-          for component in $components; do
+          IFS=',' read -ra COMPONENTS <<< "${{ github.event.inputs.components }}"
+          for component in "${COMPONENTS[@]}"; do
             echo "Building ${component} image..."
             make -f make/photon/Makefile _build_${component} \
               PLATFORM=linux/arm64 \
@@ -71,11 +139,12 @@ jobs:
               DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
               DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull" \
               BASEIMAGENAMESPACE=goharbor \
-              BASEIMAGETAG=v2.12.0 \
-              VERSIONTAG=v2.12.0
+              BASEIMAGETAG=${{ github.event.inputs.version }} \
+              VERSIONTAG=${{ github.event.inputs.version }}
           done
 
       - name: Package Offline Installer
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'package_only'
         run: |
           make package_offline \
             PLATFORM=linux/arm64 \
@@ -83,9 +152,9 @@ jobs:
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
             DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull" \
             GOBUILDTAGS="include_oss" \
-            BASEIMAGETAG=v2.12.0 \
-            VERSIONTAG=v2.12.0 \
-            PKGVERSIONTAG=v2.12.0 \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }} \
+            PKGVERSIONTAG=${{ github.event.inputs.version }} \
             REGISTRYVERSION=v2.7.1 \
             NOTARYFLAG=false \
             CHARTFLAG=false \
@@ -104,8 +173,9 @@ jobs:
           done
 
       - name: Upload Package
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'package_only'
         uses: actions/upload-artifact@v3
         with:
-          name: harbor-arm64-v2.12.0
+          name: harbor-arm64-${{ github.event.inputs.version }}
           path: harbor*.tgz
           retention-days: 5
