@@ -55,7 +55,12 @@ jobs:
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+        
+      - name: Initialize Docker Buildx
+        run: |
+          docker buildx create --use
+          docker buildx inspect --bootstrap
+          
       - name: Build Base Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
         run: |
@@ -66,8 +71,8 @@ jobs:
           COMMON_BUILD_ARGS="\
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true" \
+            DOCKERBUILD=\"docker buildx build --platform linux/arm64 --load\" \
+            DOCKERBUILD_WITH_PULL_PARA=\"docker buildx build --platform linux/arm64 --load --pull=true\" \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }}"
