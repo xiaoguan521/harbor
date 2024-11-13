@@ -1,40 +1,43 @@
-name: "Build Package Workflow By human"
+name: "Build Harbor Package Workflow"
 env:
   DOCKER_COMPOSE_VERSION: 1.29.2
 
 on: 
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Harbor version (e.g., v2.2.2)'
-        required: true
-        default: 'v2.12.0'
-      ref_type:
-        description: 'Reference type'
-        required: true
-        default: 'tag'
-        type: choice
-        options:
-          - tag
-          - branch
-      arch:
-        description: 'Build architecture'
-        required: true
-        default: 'arm64'
-        type: choice
-        options:
-          - arm64
-          - amd64
+   inputs:
+    version:
+      description: 'Harbor version'
+      required: true
+      default: 'v2.12.0'
+    arch:
+      description: 'Build architecture'
+      required: true
+      default: 'arm64'
+      type: choice
+      options:
+        - arm64
+        - amd64
+
 jobs:
   BUILD_PACKAGE:
     runs-on: ubuntu-20.04
     steps:
-      # ... 前面的步骤保持不变 ...
+      - name: Checkout Harbor source
+        uses: actions/checkout@v3
+        with:
+          repository: goharbor/harbor
+          ref: ${{ github.event.inputs.version }}
+          
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/arm64
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Base Images
         run: |
-          cd src/github.com/goharbor/harbor
-          
           # 设置共同的构建参数
           COMMON_PARAMS="\
             PLATFORM=linux/arm64 \
@@ -54,8 +57,6 @@ jobs:
 
       - name: Build Component Images
         run: |
-          cd src/github.com/goharbor/harbor
-          
           # 设置共同的构建参数
           COMMON_PARAMS="\
             PLATFORM=linux/arm64 \
@@ -76,8 +77,6 @@ jobs:
 
       - name: Package Offline Installer
         run: |
-          cd src/github.com/goharbor/harbor
-          
           # 构建离线包
           make package_offline GOBUILDTAGS="include_oss" \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
@@ -89,27 +88,22 @@ jobs:
             NOTARYFLAG=false \
             CHARTFLAG=false \
             TRIVYFLAG=true \
-            PULL_BASE_FROM_DOCKERHUB=false  
+            PULL_BASE_FROM_DOCKERHUB=false
 
-      - name: Verify image architecture
+      - name: Verify Images
         run: |
-          cd src/github.com/goharbor/harbor
+          echo "=== Checking All Images ==="
+          docker images | grep goharbor
+          
+          echo "=== Verifying Image Architectures ==="
           for img in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "goharbor"); do
-            echo "Checking architecture for $img"
-            docker inspect $img | grep "Architecture"
-            docker manifest inspect $img || true
+            echo "=== $img ==="
+            docker inspect $img | grep -A 3 '"Architecture"'
           done
-          
-      - name: Check build results
-        run: |
-          cd src/github.com/goharbor/harbor
-          ls -lh harbor-*.tgz
-          docker images
-          
-      - name: Upload artifacts
+
+      - name: Upload Package
         uses: actions/upload-artifact@v3
         with:
-          name: harbor-packages-${{ github.event.inputs.version }}-${{ github.event.inputs.arch }}-${{ github.run_id }}
-          path: |
-            src/github.com/goharbor/harbor/harbor-offline-installer-*.tgz
+          name: harbor-${{ github.event.inputs.arch }}-${{ github.event.inputs.version }}
+          path: harbor*.tgz
           retention-days: 5
