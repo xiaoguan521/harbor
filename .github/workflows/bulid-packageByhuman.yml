@@ -11,7 +11,7 @@ on:
       components:
         description: 'Components to build (comma-separated)'
         required: false
-        default: 'prepare,db,redis,registry,registryctl,portal,core,jobservice,log,trivy-adapter,exporter'
+        default: 'prepare,nginx,db,redis,registry,registryctl,portal,core,jobservice,log,trivy-adapter,exporter,standalone-db-migrator'
       ref_type:
         description: 'Reference type'
         required: true
@@ -63,107 +63,64 @@ jobs:
           
           # prepare base
           echo "Building prepare base image..."
-          make -f make/photon/Makefile _build_prepare \
+          COMMON_BUILD_ARGS="\
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+            DOCKERBUILD=\"docker buildx build --platform linux/arm64 --load\" \
+            DOCKERBUILD_WITH_PULL_PARA=\"docker buildx build --platform linux/arm64 --load --pull=true\" \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}"
+          
+          make -f make/photon/Makefile _build_prepare $COMMON_BUILD_ARGS
           
           # db base
           echo "Building db base image..."
-          make -f make/photon/Makefile _build_db \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_db $COMMON_BUILD_ARGS
           
           # redis base
           echo "Building redis base image..."
-          make -f make/photon/Makefile _build_redis \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
-
-           # nginx base
+          make -f make/photon/Makefile _build_redis $COMMON_BUILD_ARGS
+          
+          # nginx base
           echo "Building nginx base image..."
-          make -f make/photon/Makefile _build_nginx \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"   \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_nginx $COMMON_BUILD_ARGS
           
           # registry base
           echo "Building registry base image..."
-          make -f make/photon/Makefile _build_registry \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_registry $COMMON_BUILD_ARGS
           
           # registryctl base
           echo "Building registryctl base image..."
-          make -f make/photon/Makefile _build_registryctl \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_registryctl $COMMON_BUILD_ARGS
           
           # portal base
           echo "Building portal base image..."
-          make -f make/photon/Makefile _build_portal \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_portal $COMMON_BUILD_ARGS
           
           # core base
           echo "Building core base image..."
-          make -f make/photon/Makefile _build_core \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_core $COMMON_BUILD_ARGS
           
           # jobservice base
           echo "Building jobservice base image..."
-          make -f make/photon/Makefile _build_jobservice \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_jobservice $COMMON_BUILD_ARGS
           
           # log base
           echo "Building log base image..."
-          make -f make/photon/Makefile _build_log \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_log $COMMON_BUILD_ARGS
           
           # trivy base
           echo "Building trivy base image..."
-          make -f make/photon/Makefile _build_trivy_adapter \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_trivy_adapter $COMMON_BUILD_ARGS
           
           # exporter base
           echo "Building exporter base image..."
-          make -f make/photon/Makefile _compile_and_build_exporter \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _compile_and_build_exporter $COMMON_BUILD_ARGS
           
           # standalone db migrator
           echo "Building standalone db migrator image..."
-          make -f make/photon/Makefile _build_standalone_db_migrator \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD="docker buildx build --platform linux/arm64 --load"   \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull=true"
+          make -f make/photon/Makefile _build_standalone_db_migrator $COMMON_BUILD_ARGS
 
       - name: Build Component Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'component_only'
