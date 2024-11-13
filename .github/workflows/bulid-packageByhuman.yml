@@ -119,7 +119,10 @@ jobs:
             DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
-            VERSIONTAG=${{ github.event.inputs.version }}
+            VERSIONTAG=${{ github.event.inputs.version }} \
+            REGISTRYVERSION=v2.7.1 \
+            REGISTRY_SRC_TAG=v2.7.1 \
+            REGISTRY_VERSION=v2.7.1
           
           # registryctl base
           echo "Building registryctl base image..."
