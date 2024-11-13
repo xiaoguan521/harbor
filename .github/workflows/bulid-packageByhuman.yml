@@ -1,6 +1,6 @@
 name: "Build Package Workflow By human"
 env:
-  DOCKER_COMPOSE_VERSION: 1.23.0
+  DOCKER_COMPOSE_VERSION: 1.29.2
 
 on: 
   workflow_dispatch:
@@ -32,7 +32,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
-      # 检出指定版本的 Harbor 源码
       - name: Checkout Harbor source
         uses: actions/checkout@v3
         with:
@@ -41,18 +40,6 @@ jobs:
           path: src/github.com/goharbor/harbor
           fetch-depth: 0
           
-      # 验证版本信息
-      - name: Verify version
-        run: |
-          cd src/github.com/goharbor/harbor
-          if [ "${{ github.event.inputs.ref_type }}" = "tag" ]; then
-            git fetch --all --tags
-            if ! git tag | grep -q "^${{ github.event.inputs.version }}$"; then
-              echo "Tag ${{ github.event.inputs.version }} not found"
-              exit 1
-            fi
-          fi
-          echo "Building Harbor version: $(cat VERSION)"
       - name: Set build context
         run: |
           echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
@@ -77,26 +64,39 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23.2
+          go-version: '1.21.6'
+          
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
           
       - name: Setup Docker
         uses: docker-practice/actions-setup-docker@master
         with:
           docker_version: 20.10
           docker_channel: stable
-       # 添加 docker-compose 安装步骤
+          
       - name: Install docker-compose
         run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
+          
       - name: Build Package
         run: |
           set -x
           cd src/github.com/goharbor/harbor
-         
-          # 使用输入的版本作为基础镜像标签
-          build_base_params=" BUILD_BASE=false PUSHBASEIMAGE=false"
+          
+          # 设置环境变量
+          export BUILDARCH=arm64
+          export PLATFORM=linux/arm64
+          
+          # 构建基础镜像
+          sudo make build_base_docker -e BUILDARCH=${{ github.event.inputs.arch }} PLATFORM=linux/arm64
           
           # 构建离线包
           sudo make package_offline GOBUILDTAGS="include_oss" \
@@ -105,11 +105,18 @@ jobs:
             PKGVERSIONTAG=${{ github.event.inputs.version }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
             PLATFORM=linux/arm64 \
-            ${build_base_params} \
-            REGISTRYVERSION=v2.7.1
-            
-      
+            REGISTRYVERSION=v2.7.1 \
+            PULL_BASE_FROM_DOCKERHUB=false
 
+      - name: Verify image architecture
+        run: |
+          cd src/github.com/goharbor/harbor
+          for img in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "goharbor"); do
+            echo "Checking architecture for $img"
+            docker inspect $img | grep "Architecture"
+            docker manifest inspect $img || true
+          done
+          
       - name: Check build results
         run: |
           cd src/github.com/goharbor/harbor
