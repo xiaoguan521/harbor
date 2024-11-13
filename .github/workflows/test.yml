@@ -27,16 +27,31 @@ jobs:
         with:
           platforms: linux/arm64
 
+      - name: Build Base Image
+        run: |
+          # 先构建基础镜像
+          docker buildx build \
+            --platform linux/arm64 \
+            --load \
+            -t goharbor/harbor-core-base:latest \
+            -f make/photon/core/base/Dockerfile .
+
       - name: Build Harbor Core
         run: |
-          # 只构建 harbor-core
+          # 构建 harbor-core
           docker buildx build \
             --platform linux/arm64 \
             --load \
             -t goharbor/harbor-core:test \
-            -f make/photon/core/Dockerfile .
+            -f make/photon/core/Dockerfile \
+            --build-arg harbor_base_image_version=latest \
+            --build-arg harbor_base_namespace=goharbor \
+            .
 
       - name: Verify Architecture
         run: |
+          echo "Checking base image:"
+          docker inspect goharbor/harbor-core-base:latest | grep -A 3 "Architecture"
+          
           echo "Checking harbor-core image:"
           docker inspect goharbor/harbor-core:test | grep -A 3 "Architecture"
