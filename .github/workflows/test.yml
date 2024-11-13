@@ -37,8 +37,6 @@ jobs:
           echo "=== DB Images ==="
           docker images | grep harbor-db
           
-          echo "=== DB Base Image Architecture ==="
-          docker inspect goharbor/harbor-db-base:v2.12.0 | grep -A 3 '"Architecture"'
-          
+           
           echo "=== DB Image Architecture ==="
           docker inspect goharbor/harbor-db:v2.12.0 | grep -A 3 '"Architecture"'
