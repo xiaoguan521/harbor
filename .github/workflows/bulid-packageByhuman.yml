@@ -1,4 +1,4 @@
-name: "Build Package Workflow By human"
+name: "Build Package Workflow"
 env:
   DOCKER_COMPOSE_VERSION: 1.23.0
 
@@ -70,8 +70,15 @@ jobs:
         with:
           docker_version: 20.10
           docker_channel: stable
-
+       # 添加 docker-compose 安装步骤
+      - name: Install docker-compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
       - name: Build Package
+        env:
+          TERM: xterm
         run: |
           set -x
           cd src/github.com/goharbor/harbor
@@ -109,3 +116,5 @@ jobs:
             src/github.com/goharbor/harbor/harbor-offline-installer-*.tgz
             src/github.com/goharbor/harbor/harbor-online-installer-*.tgz
           retention-days: 5
+
+
