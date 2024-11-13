@@ -61,20 +61,37 @@ jobs:
           docker buildx create --use
           docker buildx inspect --bootstrap
           
-      - name: Download Registry Source
+      - name: Download and Prepare Registry
+        id: registry_prep
         run: |
           REGISTRY_VERSION=v2.7.1
-          mkdir -p /tmp/registry
-          curl -L https://github.com/distribution/distribution/archive/refs/tags/${REGISTRY_VERSION}.tar.gz | tar xz -C /tmp/registry
+          REGISTRY_DIR=/tmp/registry
+          
+          # 下载并解压 registry 源码
+          mkdir -p ${REGISTRY_DIR}
+          curl -L https://github.com/distribution/distribution/archive/refs/tags/${REGISTRY_VERSION}.tar.gz | tar xz -C ${REGISTRY_DIR}
+          
+          # 输出环境变量供后续步骤使用
+          echo "registry_version=${REGISTRY_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "registry_src=${REGISTRY_DIR}/distribution-${REGISTRY_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "registry_src_tag=${REGISTRY_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "registry_url=https://github.com/distribution/distribution/releases/download/${REGISTRY_VERSION}/registry" >> "$GITHUB_OUTPUT"
 
       - name: Build Base Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
-        env:
-          REGISTRY_VERSION: v2.7.1
-          REGISTRY_SRC_TAG: v2.7.1
-          REGISTRYVERSION: v2.7.1
         run: |
           echo "=== Building Base Images ==="
+          
+           # prepare base
+          echo "Building prepare base image..."
+          make -f make/photon/Makefile _build_prepare \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # prepare base
           echo "Building prepare base image..."
@@ -125,15 +142,12 @@ jobs:
           make -f make/photon/Makefile _build_registry \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
-            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
-            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
-            BASEIMAGENAMESPACE=goharbor \
-            BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
-            REGISTRY_VERSION=${REGISTRY_VERSION} \
-            REGISTRY_SRC_TAG=${REGISTRY_SRC_TAG} \
-            REGISTRYVERSION=${REGISTRYVERSION} \
-            REGISTRY_SRC=/tmp/registry/distribution-${REGISTRY_VERSION}
+            REGISTRY_VERSION=${{ steps.registry_prep.outputs.registry_version }} \
+            REGISTRY_SRC_TAG=${{ steps.registry_prep.outputs.registry_src_tag }} \
+            REGISTRYVERSION=${{ steps.registry_prep.outputs.registry_version }} \
+            REGISTRY_SRC=${{ steps.registry_prep.outputs.registry_src }} \
+            REGISTRYURL=${{ steps.registry_prep.outputs.registry_url }}
           
           # registryctl base
           echo "Building registryctl base image..."
