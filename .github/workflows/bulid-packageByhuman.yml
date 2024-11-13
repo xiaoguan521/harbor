@@ -1,4 +1,4 @@
-name: "Build Package Workflow By Human"
+name: "Build Package Workflow By human"
 env:
   DOCKER_COMPOSE_VERSION: 1.23.0
 
@@ -77,18 +77,16 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
       - name: Build Package
-        env:
-          TERM: xterm
         run: |
           set -x
           cd src/github.com/goharbor/harbor
           
-          # 设置构建参数
-          build_base_params=" BUILD_BASE=true PUSHBASEIMAGE=false"
+          # 使用输入的版本作为基础镜像标签
+          build_base_params=" BUILD_BASE=false PUSHBASEIMAGE=false"
           
           # 构建离线包
           sudo make package_offline GOBUILDTAGS="include_oss" \
-            BASEIMAGETAG=dev \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
             PKGVERSIONTAG=${{ github.event.inputs.version }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
@@ -96,7 +94,7 @@ jobs:
             
           # 构建在线包
           sudo make package_online GOBUILDTAGS="include_oss" \
-            BASEIMAGETAG=dev \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
             PKGVERSIONTAG=${{ github.event.inputs.version }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
