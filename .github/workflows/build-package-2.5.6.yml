@@ -90,6 +90,7 @@ jobs:
             VERSIONTAG=${{ github.event.inputs.version }} \
             PKGVERSIONTAG=${{ github.event.inputs.version }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
+            REGISTRYVERSION=v2.7.1 \
             ${build_base_params}
             
           # 构建在线包
@@ -98,6 +99,7 @@ jobs:
             VERSIONTAG=${{ github.event.inputs.version }} \
             PKGVERSIONTAG=${{ github.event.inputs.version }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
+            REGISTRYVERSION=v2.7.1 \
             ${build_base_params}
 
       - name: Check build results
