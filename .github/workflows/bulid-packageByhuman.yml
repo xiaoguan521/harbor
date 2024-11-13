@@ -1,4 +1,4 @@
-name: "Build Harbor Package Workflow"
+name: "Build Harbor Package by Human"
 env:
   DOCKER_COMPOSE_VERSION: 1.29.2
 
