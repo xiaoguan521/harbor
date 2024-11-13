@@ -2,7 +2,29 @@ name: "Build Package Workflow"
 env:
   DOCKER_COMPOSE_VERSION: 1.23.0
 
-on:
+on: 
+  workflow_dispatch:
+   inputs:
+    version:
+      description: 'Harbor version (e.g., v2.9.0)'
+      required: true
+      default: 'v2.9.0'
+    ref_type:
+      description: 'Reference type'
+      required: true
+      default: 'tag'
+      type: choice
+      options:
+        - tag
+        - branch
+    arch:
+      description: 'Build architecture'
+      required: true
+      default: 'arm64'
+      type: choice
+      options:
+        - arm64
+        - amd64
   push:
     branches:
       - main
@@ -12,13 +34,38 @@ jobs:
   BUILD_PACKAGE:
     strategy:
       matrix:
-        arch: [amd64,arm64]
+        arch: [arm64]
     env:
         BUILD_PACKAGE: true
     runs-on:
       - ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+      - name: Checkout Harbor source
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v3
+        with:
+          repository: goharbor/harbor
+          ref: ${{ github.event.inputs.version }}
+          path: src/github.com/goharbor/harbor
+          fetch-depth: 0
+      - name: Checkout default
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/checkout@v3
+        with:
+          path: src/github.com/goharbor/harbor
+      - name: Verify version
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          cd src/github.com/goharbor/harbor
+          if [ "${{ github.event.inputs.ref_type }}" = "tag" ]; then
+            git fetch --all --tags
+            if ! git tag | grep -q "^${{ github.event.inputs.version }}$"; then
+              echo "Tag ${{ github.event.inputs.version }} not found"
+              exit 1
+            fi
+          fi
+          echo "Building Harbor version: $(cat VERSION)"
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -113,6 +160,10 @@ jobs:
           ls -l
           cp ${harbor_offline_build_bundle} harbor-offline-installer-latest-${{ matrix.arch }}.tgz
           cp ${harbor_online_build_bundle} harbor-online-installer-latest-${{ matrix.arch }}.tgz
+      - name: Check image size
+        run: |
+          docker images
+          du -sh harbor-*.tgz    
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
