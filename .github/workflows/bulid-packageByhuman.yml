@@ -7,7 +7,7 @@ on:
       version:
         description: 'Harbor version (e.g., v2.2.2)'
         required: true
-        default: 'v2.12.0'
+        default: 'v2.12.01'
       components:
         description: 'Components to build (comma-separated)'
         required: false
@@ -80,7 +80,7 @@ jobs:
       - name: Build Base Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
         run: |
-          echo "=== Building Base Images ==="         
+          echo "=== Building Base Images ==="          
           
           # prepare base
           echo "Building prepare base image..."
