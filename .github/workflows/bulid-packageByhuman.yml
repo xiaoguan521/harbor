@@ -7,7 +7,11 @@ on:
       version:
         description: 'Harbor version (e.g., v2.2.2)'
         required: true
-        default: 'v2.12.0'
+        default: 'v2.2.2'
+      components:
+        description: 'Components to build (comma-separated)'
+        required: false
+        default: 'prepare,db,redis,registry,registryctl,portal,core,jobservice,log,trivy-adapter,exporter'
       ref_type:
         description: 'Reference type'
         required: true
@@ -24,6 +28,16 @@ on:
         options:
           - arm64
           - amd64
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - base_only
+          - component_only
+          - package_only
 jobs:
   BUILD_PACKAGE:
     runs-on: ubuntu-20.04
