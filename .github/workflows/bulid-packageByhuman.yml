@@ -66,66 +66,66 @@ jobs:
         run: |
           echo "=== Building Base Images ==="
           
+          # 设置环境变量
+          export PLATFORM="linux/arm64"
+          export BUILDARCH="arm64"
+          export DOCKERBUILD='docker buildx build --platform linux/arm64 --load'
+          export DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull=true'
+          export BASEIMAGENAMESPACE="goharbor"
+          export BASEIMAGETAG="${{ github.event.inputs.version }}"
+          export VERSIONTAG="${{ github.event.inputs.version }}"
+          
           # prepare base
           echo "Building prepare base image..."
-          COMMON_BUILD_ARGS="\
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD=\"docker buildx build --platform linux/arm64 --load\" \
-            DOCKERBUILD_WITH_PULL_PARA=\"docker buildx build --platform linux/arm64 --load --pull=true\" \
-            BASEIMAGENAMESPACE=goharbor \
-            BASEIMAGETAG=${{ github.event.inputs.version }} \
-            VERSIONTAG=${{ github.event.inputs.version }}"
-          
-          make -f make/photon/Makefile _build_prepare $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_prepare
           
           # db base
           echo "Building db base image..."
-          make -f make/photon/Makefile _build_db $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_db
           
           # redis base
           echo "Building redis base image..."
-          make -f make/photon/Makefile _build_redis $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_redis
           
           # nginx base
           echo "Building nginx base image..."
-          make -f make/photon/Makefile _build_nginx $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_nginx
           
           # registry base
           echo "Building registry base image..."
-          make -f make/photon/Makefile _build_registry $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_registry
           
           # registryctl base
           echo "Building registryctl base image..."
-          make -f make/photon/Makefile _build_registryctl $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_registryctl
           
           # portal base
           echo "Building portal base image..."
-          make -f make/photon/Makefile _build_portal $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_portal
           
           # core base
           echo "Building core base image..."
-          make -f make/photon/Makefile _build_core $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_core
           
           # jobservice base
           echo "Building jobservice base image..."
-          make -f make/photon/Makefile _build_jobservice $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_jobservice
           
           # log base
           echo "Building log base image..."
-          make -f make/photon/Makefile _build_log $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_log
           
           # trivy base
           echo "Building trivy base image..."
-          make -f make/photon/Makefile _build_trivy_adapter $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_trivy_adapter
           
           # exporter base
           echo "Building exporter base image..."
-          make -f make/photon/Makefile _compile_and_build_exporter $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _compile_and_build_exporter
           
           # standalone db migrator
           echo "Building standalone db migrator image..."
-          make -f make/photon/Makefile _build_standalone_db_migrator $COMMON_BUILD_ARGS
+          make -f make/photon/Makefile _build_standalone_db_migrator
 
       - name: Build Component Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'component_only'
