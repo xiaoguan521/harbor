@@ -3,20 +3,14 @@ on:
   workflow_dispatch:
    inputs:
     version:
-      description: 'Harbor version'
+      description: 'Test version'
       required: true
-      default: 'v2.12.0'
+      default: '1.0'
 
 jobs:
   BUILD_TEST:
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout Harbor source
-        uses: actions/checkout@v3
-        with:
-          repository: goharbor/harbor
-          ref: ${{ github.event.inputs.version }}
-          
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
@@ -27,31 +21,43 @@ jobs:
         with:
           platforms: linux/arm64
 
-      - name: Build Base Image
+      - name: Verify Environment
         run: |
-          # 先构建基础镜像
-          docker buildx build \
-            --platform linux/arm64 \
-            --load \
-            -t goharbor/harbor-core-base:latest \
-            -f make/photon/core/base/Dockerfile .
-
-      - name: Build Harbor Core
-        run: |
-          # 构建 harbor-core
-          docker buildx build \
-            --platform linux/arm64 \
-            --load \
-            -t goharbor/harbor-core:test \
-            -f make/photon/core/Dockerfile \
-            --build-arg harbor_base_image_version=latest \
-            --build-arg harbor_base_namespace=goharbor \
-            .
-
-      - name: Verify Architecture
-        run: |
-          echo "Checking base image:"
-          docker inspect goharbor/harbor-core-base:latest | grep -A 3 "Architecture"
+          echo "=== System Info ==="
+          uname -a
           
-          echo "Checking harbor-core image:"
-          docker inspect goharbor/harbor-core:test | grep -A 3 "Architecture"
+          echo "=== QEMU Info ==="
+          ls -l /proc/sys/fs/binfmt_misc/qemu*
+          
+          echo "=== Docker Info ==="
+          docker buildx ls
+          
+          echo "=== Available Platforms ==="
+          docker buildx inspect --bootstrap
+
+      - name: Create test Dockerfile
+        run: |
+          cat > Dockerfile << 'EOF'
+          FROM --platform=linux/arm64 alpine:latest
+          RUN uname -a > /arch.txt
+          CMD cat /arch.txt
+          EOF
+
+      - name: Build and Test
+        run: |
+          # 构建镜像
+          docker buildx build \
+            --platform linux/arm64 \
+            --load \
+            -t arm64-test:${{ github.event.inputs.version }} \
+            .
+          
+          # 验证镜像
+          echo "=== Image Info ==="
+          docker images arm64-test:${{ github.event.inputs.version }}
+          
+          echo "=== Architecture Info ==="
+          docker inspect arm64-test:${{ github.event.inputs.version }} | grep -A 3 "Architecture"
+          
+          echo "=== Running Container Test ==="
+          docker run --rm arm64-test:${{ github.event.inputs.version }}
