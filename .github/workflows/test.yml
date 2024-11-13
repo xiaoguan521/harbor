@@ -33,8 +33,20 @@ jobs:
             .
           
           echo "=== Check Built Image ==="
-          docker images --format "{{.Repository}}:{{.Tag}} {{.Architecture}}"
-          docker inspect arm64test:latest | grep -A 3 "Architecture"
+          echo "Docker Images:"
+          docker images
+          
+          echo "Image Inspection:"
+          docker inspect arm64test:latest | grep -A 3 '"Architecture"'
           
           echo "=== Run Test Container ==="
           docker run --rm arm64test:latest
+
+      - name: Detailed Image Info
+        run: |
+          echo "=== Detailed Image Information ==="
+          docker image inspect arm64test:latest --format '{{.Architecture}}'
+          docker image inspect arm64test:latest --format '{{.Os}}'
+          
+          echo "=== Full Image Details ==="
+          docker image inspect arm64test:latest
