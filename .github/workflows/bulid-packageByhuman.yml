@@ -1,4 +1,4 @@
-name: "Build Package Workflow By human"
+name: "Build Harbor Package Workflow"
 env:
   DOCKER_COMPOSE_VERSION: 1.29.2
 
@@ -6,17 +6,9 @@ on:
   workflow_dispatch:
    inputs:
     version:
-      description: 'Harbor version (e.g., v2.2.2)'
+      description: 'Harbor version'
       required: true
       default: 'v2.12.0'
-    ref_type:
-      description: 'Reference type'
-      required: true
-      default: 'tag'
-      type: choice
-      options:
-        - tag
-        - branch
     arch:
       description: 'Build architecture'
       required: true
@@ -30,22 +22,12 @@ jobs:
   BUILD_PACKAGE:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
-      
       - name: Checkout Harbor source
         uses: actions/checkout@v3
         with:
           repository: goharbor/harbor
           ref: ${{ github.event.inputs.version }}
-          path: src/github.com/goharbor/harbor
-          fetch-depth: 0
           
-      - name: Set build context
-        run: |
-          echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
-          echo "BUILDKIT_PROGRESS=plain" >> $GITHUB_ENV
-          echo "DOCKER_CLI_EXPERIMENTAL=enabled" >> $GITHUB_ENV
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
@@ -53,82 +35,54 @@ jobs:
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          platforms: linux/arm64
-      
-      - name: Create builder instance
-        run: |
-          docker buildx create --name multiarch-builder --driver docker-container --platform linux/arm64
-          docker buildx use multiarch-builder
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21.6'
-          
-      - name: Cache Docker layers
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-          
-      - name: Setup Docker
-        uses: docker-practice/actions-setup-docker@master
-        with:
-          docker_version: 20.10
-          docker_channel: stable
-          
-      - name: Install docker-compose
+      - name: Build Components
         run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose --version
-          
-      - name: Build Package
+          # 构建所有组件
+          components="prepare registry registryctl portal core jobservice proxy log db redis trivy exporter"
+          for component in $components; do
+            echo "=== Building ${component} ==="
+            make -f make/photon/Makefile _build_${component} \
+              PLATFORM=linux/arm64 \
+              BUILDARCH=arm64 \
+              DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
+              DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull" \
+              BASEIMAGENAMESPACE=goharbor \
+              BASEIMAGETAG=${{ github.event.inputs.version }} \
+              VERSIONTAG=${{ github.event.inputs.version }}
+          done
+
+      - name: Package Offline Installer
         run: |
-          set -x
-          cd src/github.com/goharbor/harbor
-          
-          # 设置环境变量
-          export BUILDARCH=arm64
-          export PLATFORM=linux/arm64
-          export DOCKERBUILD='docker buildx build --platform linux/arm64 --load'
-          export DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull'
-          
-          # 构建基础镜像
-          sudo make build_base_docker -e BUILDARCH=${{ github.event.inputs.arch }} PLATFORM=linux/arm64
-          
-          # 构建离线包
-          sudo make package_offline GOBUILDTAGS="include_oss" \
+          make package_offline \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull" \
+            GOBUILDTAGS="include_oss" \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
             PKGVERSIONTAG=${{ github.event.inputs.version }} \
-            BUILDARCH=${{ github.event.inputs.arch }} \
-            PLATFORM=linux/arm64 \
             REGISTRYVERSION=v2.7.1 \
+            NOTARYFLAG=false \
+            CHARTFLAG=false \
+            TRIVYFLAG=true \
             PULL_BASE_FROM_DOCKERHUB=false
 
-      - name: Verify image architecture
+      - name: Verify Images
         run: |
-          cd src/github.com/goharbor/harbor
+          echo "=== All Harbor Images ==="
+          docker images | grep goharbor
+          
+          echo "=== Image Architectures ==="
           for img in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "goharbor"); do
-            echo "Checking architecture for $img"
-            docker inspect $img | grep "Architecture"
-            docker manifest inspect $img || true
+            echo "=== $img ==="
+            docker inspect $img | grep -A 3 '"Architecture"'
           done
-          
-      - name: Check build results
-        run: |
-          cd src/github.com/goharbor/harbor
-          ls -lh harbor-*.tgz
-          docker images
-          
-      - name: Upload artifacts
+
+      - name: Upload Package
         uses: actions/upload-artifact@v3
         with:
-          name: harbor-packages-${{ github.event.inputs.version }}-${{ github.event.inputs.arch }}-${{ github.run_id }}
-          path: |
-            src/github.com/goharbor/harbor/harbor-offline-installer-*.tgz
+          name: harbor-${{ github.event.inputs.arch }}-${{ github.event.inputs.version }}
+          path: harbor*.tgz
           retention-days: 5
