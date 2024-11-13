@@ -59,19 +59,18 @@ jobs:
       - name: Build Base Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
         run: |
-          # 构建所有基础镜像
           echo "=== Building Base Images ==="
           
           # prepare base
           echo "Building prepare base image..."
-          make -f make/photon/Makefile _build_prepare_base \
+          make -f make/photon/Makefile build_prepare_base \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
           
           # db base
           echo "Building db base image..."
-          make -f make/photon/Makefile _build_db_base \
+          make -f make/photon/Makefile build_db_base \
             PLATFORM=linux/arm64 \
             BUILDARCH=arm64 \
             DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
