@@ -61,8 +61,18 @@ jobs:
           docker buildx create --use
           docker buildx inspect --bootstrap
           
+      - name: Download Registry Source
+        run: |
+          REGISTRY_VERSION=v2.7.1
+          mkdir -p /tmp/registry
+          curl -L https://github.com/distribution/distribution/archive/refs/tags/${REGISTRY_VERSION}.tar.gz | tar xz -C /tmp/registry
+
       - name: Build Base Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
+        env:
+          REGISTRY_VERSION: v2.7.1
+          REGISTRY_SRC_TAG: v2.7.1
+          REGISTRYVERSION: v2.7.1
         run: |
           echo "=== Building Base Images ==="
           
@@ -120,9 +130,10 @@ jobs:
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
-            REGISTRYVERSION=v2.7.1 \
-            REGISTRY_SRC_TAG=v2.7.1 \
-            REGISTRY_VERSION=v2.7.1
+            REGISTRY_VERSION=${REGISTRY_VERSION} \
+            REGISTRY_SRC_TAG=${REGISTRY_SRC_TAG} \
+            REGISTRYVERSION=${REGISTRYVERSION} \
+            REGISTRY_SRC=/tmp/registry/distribution-${REGISTRY_VERSION}
           
           # registryctl base
           echo "Building registryctl base image..."
