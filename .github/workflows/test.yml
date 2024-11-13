@@ -1,11 +1,6 @@
-name: "Test ARM64 Build"
+name: "ARM64 Build Test"
 on: 
   workflow_dispatch:
-   inputs:
-    version:
-      description: 'Test version'
-      required: true
-      default: '1.0'
 
 jobs:
   BUILD_TEST:
@@ -18,46 +13,49 @@ jobs:
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          platforms: linux/arm64
 
-      - name: Verify Environment
+      - name: Test ARM64 Build
         run: |
-          echo "=== System Info ==="
-          uname -a
+          # 拉取并检查 ARM64 镜像
+          echo "=== Pull ARM64 Alpine ==="
+          docker pull --platform linux/arm64 alpine:latest
           
-          echo "=== QEMU Info ==="
-          ls -l /proc/sys/fs/binfmt_misc/qemu*
+          echo "=== Check Pulled Image ==="
+          docker inspect alpine:latest | grep -A 3 "Architecture"
           
-          echo "=== Docker Info ==="
-          docker buildx ls
-          
-          echo "=== Available Platforms ==="
-          docker buildx inspect --bootstrap
-
-      - name: Create test Dockerfile
-        run: |
+          # 创建简单测试
           cat > Dockerfile << 'EOF'
           FROM --platform=linux/arm64 alpine:latest
-          RUN uname -a > /arch.txt
+          RUN apk add --no-cache uname
+          RUN uname -m > /arch.txt
           CMD cat /arch.txt
           EOF
-
-      - name: Build and Test
-        run: |
-          # 构建镜像
+          
+          # 构建测试镜像
+          echo "=== Building Test Image ==="
           docker buildx build \
             --platform linux/arm64 \
             --load \
-            -t arm64-test:${{ github.event.inputs.version }} \
+            --progress=plain \
+            -t arm64test:latest \
             .
           
-          # 验证镜像
-          echo "=== Image Info ==="
-          docker images arm64-test:${{ github.event.inputs.version }}
+          echo "=== Check Built Image ==="
+          docker images --format "{{.Repository}}:{{.Tag}} {{.Architecture}}"
+          docker inspect arm64test:latest | grep -A 3 "Architecture"
           
-          echo "=== Architecture Info ==="
-          docker inspect arm64-test:${{ github.event.inputs.version }} | grep -A 3 "Architecture"
+          echo "=== Run Test Container ==="
+          docker run --rm arm64test:latest
+
+      - name: Additional Verification
+        run: |
+          echo "=== System Architecture ==="
+          uname -m
           
-          echo "=== Running Container Test ==="
-          docker run --rm arm64-test:${{ github.event.inputs.version }}
+          echo "=== Docker Info ==="
+          docker version
+          docker info
+          
+          echo "=== QEMU Status ==="
+          ls -l /proc/sys/fs/binfmt_misc/qemu*
+          cat /proc/sys/fs/binfmt_misc/qemu-aarch64
