@@ -35,8 +35,7 @@ jobs:
       - name: Verify Image
         run: |
           echo "=== DB Images ==="
-          docker images | grep harbor-nginx
-          
+          docker images           
            
           echo "=== DB Image Architecture ==="
           docker inspect goharbor/harbor-nginx:v2.12.0 | grep -A 3 '"Architecture"'
