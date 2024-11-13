@@ -109,7 +109,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: harbor-packages-${{ github.event.inputs.arch }}
+          name: harbor-packages-${{ github.event.inputs.version }}-${{ github.event.inputs.arch }}-${{ env.BUILD_TIME }}-build.${{ github.run_number }}
           path: |
             src/github.com/goharbor/harbor/harbor-offline-installer-*.tgz
             src/github.com/goharbor/harbor/harbor-online-installer-*.tgz
