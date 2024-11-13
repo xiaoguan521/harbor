@@ -73,17 +73,21 @@ jobs:
         id: registry_prep
         run: |
           REGISTRY_DIR=/tmp/registry
+          REGISTRY_VERSION=v2.7.1
           
           # 下载并解压 registry 源码
           mkdir -p ${REGISTRY_DIR}
           curl -L https://github.com/distribution/distribution/archive/refs/tags/${REGISTRY_VERSION}.tar.gz | tar xz -C ${REGISTRY_DIR}
           
-          # 编译 registry
-          cd ${REGISTRY_DIR}/distribution-${REGISTRY_VERSION#v}
+          # 使用 GOPATH 模式编译
+          export GOPATH=/tmp/go
+          mkdir -p $GOPATH/src/github.com/distribution
+          mv ${REGISTRY_DIR}/distribution-${REGISTRY_VERSION#v} $GOPATH/src/github.com/distribution/distribution
+          cd $GOPATH/src/github.com/distribution/distribution
           GOARCH=${{ github.event.inputs.arch }} CGO_ENABLED=0 go build -o /tmp/registry ./cmd/registry
           
           # 输出环境变量供后续步骤使用
-          echo "registry_src=${REGISTRY_DIR}/distribution-${REGISTRY_VERSION#v}" >> "$GITHUB_OUTPUT"
+          echo "registry_src=$GOPATH/src/github.com/distribution/distribution" >> "$GITHUB_OUTPUT"
           echo "registry_binary=/tmp/registry" >> "$GITHUB_OUTPUT"
 
       - name: Pull Base Images
