@@ -1,9 +1,45 @@
-name: "Build Harbor DB ARM64"
+name: "Build Harbor Package by Humam"
+env:
+  DOCKER_COMPOSE_VERSION: 1.29.2
 on: 
   workflow_dispatch:
-
+    inputs:
+      version:
+        description: 'Harbor version (e.g., v2.2.2)'
+        required: true
+        default: 'v2.12.0'
+      components:
+        description: 'Components to build (comma-separated)'
+        required: false
+        default: 'prepare,nginx,db,redis,registry,registryctl,portal,core,jobservice,log,trivy-adapter,exporter,standalone-db-migrator'
+      ref_type:
+        description: 'Reference type'
+        required: true
+        default: 'tag'
+        type: choice
+        options:
+          - tag
+          - branch
+      arch:
+        description: 'Build architecture'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - amd64
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - base_only
+          - component_only
+          - package_only
 jobs:
-  BUILD_DB:
+  BUILD_PACKAGE:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout Harbor source
@@ -19,24 +55,211 @@ jobs:
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Build DB
+        
+      - name: Initialize Docker Buildx
         run: |
-         make -f make/photon/Makefile _build_db \
-          PLATFORM=linux/arm64 \
-          BUILDARCH=arm64 \
-          DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-          DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull" \
-          BASEIMAGENAMESPACE=goharbor \
-          BASEIMAGETAG=v2.12.0 \
-          VERSIONTAG=v2.12.0 \
-          DOCKERIMAGENAME_DB=goharbor/harbor-db
-
-      - name: Verify Image
-        run: |
-          echo "=== DB Images ==="
-          docker images | grep harbor-db
+          docker buildx create --use
+          docker buildx inspect --bootstrap
           
-           
-          echo "=== DB Image Architecture ==="
-          docker inspect goharbor/harbor-db:v2.12.0 | grep -A 3 '"Architecture"'
+      - name: Build Base Images
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
+        run: |
+          echo "=== Building Base Images ==="
+          
+          # prepare base
+          echo "Building prepare base image..."
+          make -f make/photon/Makefile _build_prepare \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # db base
+          echo "Building db base image..."
+          make -f make/photon/Makefile _build_db \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # redis base
+          echo "Building redis base image..."
+          make -f make/photon/Makefile _build_redis \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # nginx base
+          echo "Building nginx base image..."
+          make -f make/photon/Makefile _build_nginx \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # registry base
+          echo "Building registry base image..."
+          make -f make/photon/Makefile _build_registry \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # registryctl base
+          echo "Building registryctl base image..."
+          make -f make/photon/Makefile _build_registryctl \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # portal base
+          echo "Building portal base image..."
+          make -f make/photon/Makefile _build_portal \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # core base
+          echo "Building core base image..."
+          make -f make/photon/Makefile _build_core \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # jobservice base
+          echo "Building jobservice base image..."
+          make -f make/photon/Makefile _build_jobservice \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # log base
+          echo "Building log base image..."
+          make -f make/photon/Makefile _build_log \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # trivy base
+          echo "Building trivy base image..."
+          make -f make/photon/Makefile _build_trivy_adapter \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # exporter base
+          echo "Building exporter base image..."
+          make -f make/photon/Makefile _compile_and_build_exporter \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+          
+          # standalone db migrator
+          echo "Building standalone db migrator image..."
+          make -f make/photon/Makefile _build_standalone_db_migrator \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+
+      - name: Build Component Images
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'component_only'
+        run: |
+          # 构建组件镜像
+          echo "=== Building Component Images ==="
+          IFS=',' read -ra COMPONENTS <<< "${{ github.event.inputs.components }}"
+          for component in "${COMPONENTS[@]}"; do
+            echo "Building ${component} image..."
+            make -f make/photon/Makefile _build_${component} \
+              PLATFORM=linux/arm64 \
+              BUILDARCH=arm64 \
+              DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
+              DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull" \
+              BASEIMAGENAMESPACE=goharbor \
+              BASEIMAGETAG=${{ github.event.inputs.version }} \
+              VERSIONTAG=${{ github.event.inputs.version }}
+          done
+
+      - name: Package Offline Installer
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'package_only'
+        run: |
+          make package_offline \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull" \
+            GOBUILDTAGS="include_oss" \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }} \
+            PKGVERSIONTAG=${{ github.event.inputs.version }} \
+            REGISTRYVERSION=v2.7.1 \
+            NOTARYFLAG=false \
+            CHARTFLAG=false \
+            TRIVYFLAG=true \
+            PULL_BASE_FROM_DOCKERHUB=false
+
+      - name: Verify Images
+        run: |
+          echo "=== All Harbor Images ==="
+          docker images | grep goharbor
+          
+          echo "=== Image Architectures ==="
+          for img in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "goharbor"); do
+            echo "=== $img ==="
+            docker inspect $img | grep -A 3 '"Architecture"'
+          done
+
+      - name: Upload Package
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'package_only'
+        uses: actions/upload-artifact@v3
+        with:
+          name: harbor-arm64-${{ github.event.inputs.version }}
+          path: harbor*.tgz
+          retention-days: 5
