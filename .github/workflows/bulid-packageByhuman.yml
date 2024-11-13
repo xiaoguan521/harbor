@@ -7,7 +7,7 @@ on:
       version:
         description: 'Harbor version (e.g., v2.2.2)'
         required: true
-        default: 'v2.2.2'
+        default: 'v2.12.0'
       components:
         description: 'Components to build (comma-separated)'
         required: false
@@ -66,66 +66,148 @@ jobs:
         run: |
           echo "=== Building Base Images ==="
           
-          # 设置环境变量
-          export PLATFORM="linux/arm64"
-          export BUILDARCH="arm64"
-          export DOCKERBUILD="docker buildx build --platform linux/arm64 --load"
-          export DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull"
-          export BASEIMAGENAMESPACE="goharbor"
-          export BASEIMAGETAG="${{ github.event.inputs.version }}"
-          export VERSIONTAG="${{ github.event.inputs.version }}"
-          
           # prepare base
           echo "Building prepare base image..."
-          make -f make/photon/Makefile _build_prepare
+          make -f make/photon/Makefile _build_prepare \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # db base
           echo "Building db base image..."
-          make -f make/photon/Makefile _build_db
+          make -f make/photon/Makefile _build_db \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # redis base
           echo "Building redis base image..."
-          make -f make/photon/Makefile _build_redis
+          make -f make/photon/Makefile _build_redis \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # nginx base
           echo "Building nginx base image..."
-          make -f make/photon/Makefile _build_nginx
+          make -f make/photon/Makefile _build_nginx \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # registry base
           echo "Building registry base image..."
-          make -f make/photon/Makefile _build_registry
+          make -f make/photon/Makefile _build_registry \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # registryctl base
           echo "Building registryctl base image..."
-          make -f make/photon/Makefile _build_registryctl
+          make -f make/photon/Makefile _build_registryctl \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # portal base
           echo "Building portal base image..."
-          make -f make/photon/Makefile _build_portal
+          make -f make/photon/Makefile _build_portal \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # core base
           echo "Building core base image..."
-          make -f make/photon/Makefile _build_core
+          make -f make/photon/Makefile _build_core \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # jobservice base
           echo "Building jobservice base image..."
-          make -f make/photon/Makefile _build_jobservice
+          make -f make/photon/Makefile _build_jobservice \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # log base
           echo "Building log base image..."
-          make -f make/photon/Makefile _build_log
+          make -f make/photon/Makefile _build_log \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # trivy base
           echo "Building trivy base image..."
-          make -f make/photon/Makefile _build_trivy_adapter
+          make -f make/photon/Makefile _build_trivy_adapter \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # exporter base
           echo "Building exporter base image..."
-          make -f make/photon/Makefile _compile_and_build_exporter
+          make -f make/photon/Makefile _compile_and_build_exporter \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
           
           # standalone db migrator
           echo "Building standalone db migrator image..."
-          make -f make/photon/Makefile _build_standalone_db_migrator
+          make -f make/photon/Makefile _build_standalone_db_migrator \
+            PLATFORM=linux/arm64 \
+            BUILDARCH=arm64 \
+            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
 
       - name: Build Component Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'component_only'
