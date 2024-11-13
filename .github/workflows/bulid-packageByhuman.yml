@@ -1,13 +1,14 @@
 name: "Build Harbor Package by Humam"
 env:
   DOCKER_COMPOSE_VERSION: 1.29.2
+  REGISTRY_VERSION: v2.8.1
 on: 
   workflow_dispatch:
     inputs:
       version:
         description: 'Harbor version (e.g., v2.2.2)'
         required: true
-        default: 'v2.12.01'
+        default: 'v2.12.0'
       components:
         description: 'Components to build (comma-separated)'
         required: false
@@ -46,60 +47,88 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: goharbor/harbor
-          ref: v2.12.0
+          ref: ${{ github.event.inputs.version }}
           
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
-          platforms: linux/arm64
+          platforms: linux/${{ github.event.inputs.arch }}
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/${{ github.event.inputs.arch }}
         
       - name: Initialize Docker Buildx
         run: |
           docker buildx create --use
           docker buildx inspect --bootstrap
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
           
       - name: Download and Prepare Registry
         id: registry_prep
         run: |
-          REGISTRY_VERSION=v2.7.1
           REGISTRY_DIR=/tmp/registry
           
           # 下载并解压 registry 源码
           mkdir -p ${REGISTRY_DIR}
           curl -L https://github.com/distribution/distribution/archive/refs/tags/${REGISTRY_VERSION}.tar.gz | tar xz -C ${REGISTRY_DIR}
           
+          # 编译 registry
+          cd ${REGISTRY_DIR}/distribution-${REGISTRY_VERSION#v}
+          GOARCH=${{ github.event.inputs.arch }} CGO_ENABLED=0 go build -o /tmp/registry ./cmd/registry
+          
           # 输出环境变量供后续步骤使用
-          echo "registry_version=${REGISTRY_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "registry_src=${REGISTRY_DIR}/distribution-${REGISTRY_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "registry_src_tag=${REGISTRY_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "registry_url=https://github.com/distribution/distribution/releases/download/${REGISTRY_VERSION}/registry" >> "$GITHUB_OUTPUT"
+          echo "registry_src=${REGISTRY_DIR}/distribution-${REGISTRY_VERSION#v}" >> "$GITHUB_OUTPUT"
+          echo "registry_binary=/tmp/registry" >> "$GITHUB_OUTPUT"
+
+      - name: Pull Base Images
+        run: |
+          docker pull --platform linux/${{ github.event.inputs.arch }} goharbor/harbor-nginx-base:${{ github.event.inputs.version }}
+          docker pull --platform linux/${{ github.event.inputs.arch }} goharbor/harbor-db-base:${{ github.event.inputs.version }}
+          docker pull --platform linux/${{ github.event.inputs.arch }} goharbor/harbor-redis-base:${{ github.event.inputs.version }}
 
       - name: Build Base Images
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
         run: |
-          echo "=== Building Base Images ==="          
+          echo "=== Building Base Images ==="
           
           # prepare base
           echo "Building prepare base image..."
           make -f make/photon/Makefile _build_prepare \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
-            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }}
           
+          # registry base
+          echo "Building registry base image..."
+          make -f make/photon/Makefile _build_registry \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }} \
+            REGISTRY_BINARY=${{ steps.registry_prep.outputs.registry_binary }} \
+            REGISTRY_VERSION=${REGISTRY_VERSION} \
+            REGISTRY_SRC=${{ steps.registry_prep.outputs.registry_src }}
+          
           # db base
           echo "Building db base image..."
           make -f make/photon/Makefile _build_db \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
-            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD='docker buildx build --platform linux/${{ github.event.inputs.arch }} --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull' \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }}
@@ -107,10 +136,10 @@ jobs:
           # redis base
           echo "Building redis base image..."
           make -f make/photon/Makefile _build_redis \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
-            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD='docker buildx build --platform linux/${{ github.event.inputs.arch }} --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull' \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }}
@@ -118,14 +147,20 @@ jobs:
           # nginx base
           echo "Building nginx base image..."
           make -f make/photon/Makefile _build_nginx \
-            PLATFORM=linux/arm64 \
-            BUILDARCH=arm64 \
-            DOCKERBUILD='docker buildx build --platform linux/arm64 --load' \
-            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/arm64 --load --pull' \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD='docker buildx build --platform linux/${{ github.event.inputs.arch }} --load' \
+            DOCKERBUILD_WITH_PULL_PARA='docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull' \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }}
           
+          # registryctl base
+          echo "Building registryctl base image..."
+          make -f make/photon/Makefile _build_registryctl \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD='docker buildx build --platform linux/${{ github.event.inputs.arch }} --load' \
           # registry base
           echo "Building registry base image..."
           make -f make/photon/Makefile _build_registry \
