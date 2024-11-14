@@ -78,7 +78,7 @@ jobs:
       - name: Save Docker image
         run: |
           mkdir -p artifacts
-          docker save goharbor/redis-photon:${{ github.event.inputs.version }} | gzip > artifacts/redis-photon-${{ github.event.inputs.arch }}.tar.gz
+          docker save goharbor/redis-photon:${{ github.event.inputs.version }} | gzip > artifacts/redis-photon-${{ github.event.inputs.arch }}.tar
 
       # 上传构建产物
       - name: Upload artifacts
