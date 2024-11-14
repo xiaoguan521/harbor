@@ -58,6 +58,8 @@ jobs:
           docker buildx build \
             --platform linux/${{ github.event.inputs.arch }} \
             --load \
+            --build-arg harbor_base_namespace=goharbor \
+            --build-arg harbor_base_image_version=${{ github.event.inputs.version }} \
             -f Dockerfile \
             -t goharbor/registry-photon:${{ github.event.inputs.version }} .
 
@@ -80,6 +82,8 @@ jobs:
           docker buildx build \
             --platform linux/${{ github.event.inputs.arch }} \
             --load \
+            --build-arg harbor_base_namespace=goharbor \
+            --build-arg harbor_base_image_version=${{ github.event.inputs.version }} \
             -f Dockerfile \
             -t goharbor/harbor-registryctl:${{ github.event.inputs.version }} .
 
