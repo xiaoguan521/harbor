@@ -43,7 +43,7 @@ jobs:
       - name: Build Prepare Base Image
         run: |
           echo "=== Building Prepare Base Image ==="
-          make -f make/photon/Makefile _build_prepare_base \
+          make -f make/photon/Makefile _build_prepare \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
             DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
