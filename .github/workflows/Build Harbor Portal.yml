@@ -82,7 +82,7 @@ jobs:
 
       # 上传构建产物
       - name: Upload Portal Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: portal-${{ github.event.inputs.arch }}
           path: images/portal/
