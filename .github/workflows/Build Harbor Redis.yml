@@ -73,3 +73,16 @@ jobs:
             echo "=== $img ==="
             docker inspect $img | grep -A 3 '"Architecture"'
           done
+          
+      - name: Save Image
+        run: |
+          echo "=== Saving Image ==="
+          mkdir -p images
+          docker save -o images/harbor-redis.tar goharbor/harbor-redis:${{ github.event.inputs.version }}
+          
+      - name: Upload Image
+        uses: actions/upload-artifact@v3
+        with:
+          name: harbor-redis-${{ github.event.inputs.arch }}
+          path: images/
+          retention-days: 1
