@@ -74,15 +74,16 @@ jobs:
             docker inspect $img | grep -A 3 '"Architecture"'
           done
           
-      - name: Save Image
+       # 保存镜像
+      - name: Save Docker image
         run: |
-          echo "=== Saving Image ==="
-          mkdir -p images
-          docker save -o images/harbor-redis.tar goharbor/harbor-redis:${{ github.event.inputs.version }}
-          
-      - name: Upload Image
+          mkdir -p artifacts
+          docker save goharbor/redis-photon:${{ github.event.inputs.version }} | gzip > artifacts/redis-photon-${{ github.event.inputs.arch }}.tar.gz
+
+      # 上传构建产物
+      - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: harbor-redis-${{ github.event.inputs.arch }}
-          path: images/
-          retention-days: 1
+          name: redis-photon-image-${{ github.event.inputs.arch }}
+          path: artifacts/redis-photon-${{ github.event.inputs.arch }}.tar.gz
+          retention-days: 5
