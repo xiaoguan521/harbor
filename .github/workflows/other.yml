@@ -39,31 +39,23 @@ jobs:
         run: |
           docker buildx create --use
           docker buildx inspect --bootstrap
+
       - name: Build Exporter
         run: |
           echo "=== Building Exporter ==="
+          
+          # 先检查原始 Makefile
+          echo "=== Original Makefile Content ==="
+          cat make/photon/Makefile | grep -A 10 "_compile_and_build_exporter:"
+          
           # 修改 go.mod
           sed -i 's/go 1.23.2/go 1.21/' src/go.mod
           
-          # 创建临时 Makefile 修改
-          cat > makefile_patch.txt << 'EOF'
-          _compile_and_build_exporter:
-          	@$(call _build_base,$(EXPORTER),$(DOCKERFILEPATH_EXPORTER))
-          	@echo "compiling and building image for exporter..."
-          	@$(DOCKERBUILD) \
-          		--build-arg harbor_base_image_version=$(BASEIMAGETAG) \
-          		--build-arg harbor_base_namespace=$(BASEIMAGENAMESPACE) \
-          		--build-arg build_image=$(GOBUILDIMAGE) \
-          		-f ${DOCKERFILEPATH_EXPORTER}/${DOCKERFILENAME_EXPORTER} \
-          		-t $(DOCKERIMAGENAME_EXPORTER):$(VERSIONTAG) \
-          		--load \
-          		.
-          	@echo "Done."
-          EOF
+          # 修改 Makefile
+          sed -i 's/$(DOCKERCMD) build/$(DOCKERBUILD)/g' make/photon/Makefile
           
-          # 使用 sed 替换 Makefile 中的目标
-          sed -i '/_compile_and_build_exporter:/,/Done\./!b;r makefile_patch.txt' make/photon/Makefile
-          sed -i '/_compile_and_build_exporter:/,/Done\./d' make/photon/Makefile
+          # 添加 --load 参数到 DOCKERBUILD
+          export DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load"
           
           # 执行构建
           make -f make/photon/Makefile _compile_and_build_exporter \
@@ -76,8 +68,8 @@ jobs:
             VERSIONTAG=${{ github.event.inputs.version }} \
             GOBUILDIMAGE=golang:1.21 \
             DOCKERCMD="docker buildx" \
-            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }}" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --pull" \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
             PUSHBASEIMAGE=false
       
       - name: Build Components
