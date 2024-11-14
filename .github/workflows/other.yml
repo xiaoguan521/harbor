@@ -42,6 +42,25 @@ jobs:
       - name: Build Exporter
         run: |
           echo "=== Building Exporter ==="
+          # 修改 go.mod
+          sed -i 's/go 1.23.2/go 1.21/' src/go.mod
+          
+          # 修改 Makefile 中的 _compile_and_build_exporter 目标
+          sed -i '/_compile_and_build_exporter:/,/Done\./c\
+          _compile_and_build_exporter:\
+          \t@$$(call _build_base,$$(EXPORTER),$$(DOCKERFILEPATH_EXPORTER))\
+          \t@echo "compiling and building image for exporter..."\
+          \t@$$(DOCKERBUILD) \\\
+          \t\t--build-arg harbor_base_image_version=$$(BASEIMAGETAG) \\\
+          \t\t--build-arg harbor_base_namespace=$$(BASEIMAGENAMESPACE) \\\
+          \t\t--build-arg build_image=$$(GOBUILDIMAGE) \\\
+          \t\t-f $${DOCKERFILEPATH_EXPORTER}/$${DOCKERFILENAME_EXPORTER} \\\
+          \t\t-t $$(DOCKERIMAGENAME_EXPORTER):$$(VERSIONTAG) \\\
+          \t\t--load \\\
+          \t\t.\
+          \t@echo "Done."' make/photon/Makefile
+          
+          # 执行构建
           make -f make/photon/Makefile _compile_and_build_exporter \
             PULL_BASE_FROM_DOCKERHUB=true \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
@@ -50,12 +69,11 @@ jobs:
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
-            GOBUILDIMAGE=golang:1.23.2 \
+            GOBUILDIMAGE=golang:1.21 \
             DOCKERCMD="docker buildx" \
-            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }}" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --pull" \
             PUSHBASEIMAGE=false
-
       
       - name: Build Components
         run: |
