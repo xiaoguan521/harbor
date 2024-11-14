@@ -54,6 +54,7 @@ jobs:
         run: |
           echo "=== Building Registry Image ==="
           make -f make/photon/Makefile _build_registry \
+            BUILDBIN=true \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
             DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
