@@ -39,24 +39,26 @@ jobs:
         run: |
           docker buildx create --use
           docker buildx inspect --bootstrap
-      - name: Build Trivy Adapter
+      - name: Build Exporter
         run: |
-          echo "=== Building Trivy Adapter ==="
-          make -f make/photon/Makefile _build_trivy_adapter \
+          echo "=== Building Exporter ==="
+          # 设置构建基础镜像的变量
+          make -f make/photon/Makefile _compile_and_build_exporter \
             PULL_BASE_FROM_DOCKERHUB=true \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
-            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --build-arg GOARCH=${{ github.event.inputs.arch }}" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull --build-arg GOARCH=${{ github.event.inputs.arch }}" \
+            BUILD_BASE=true \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
-            GOBUILDIMAGE=golang:1.20
+            GOBUILDIMAGE=golang:1.20 \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            DOCKERCMD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --build-arg GOARCH=${{ github.event.inputs.arch }}"
       - name: Build Components
         run: |
           echo "=== Building Components ==="
-          make -f make/photon/Makefile \
-            _compile_and_build_exporter \
+          make -f make/photon/Makefile \          
             _build_log \
             PULL_BASE_FROM_DOCKERHUB=true \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
