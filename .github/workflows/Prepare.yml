@@ -58,4 +58,4 @@ jobs:
           docker images | grep goharbor
           
           echo "=== Image Architecture ==="
-          docker inspect goharbor/harbor:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
+          docker inspect goharbor/prepare:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
