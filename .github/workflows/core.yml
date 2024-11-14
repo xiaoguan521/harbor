@@ -45,6 +45,33 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Prepare Build Environment
+        run: |
+          echo "=== Preparing Build Environment ==="
+          # 创建 versions 文件
+          mkdir -p make/photon/prepare/
+          cat > make/photon/prepare/versions << EOF
+          HARBOR=${{ github.event.inputs.version }}
+          REGISTRY=v2.8.3
+          REGISTRYCTL=${{ github.event.inputs.version }}
+          CORE=${{ github.event.inputs.version }}
+          PORTAL=${{ github.event.inputs.version }}
+          JOBSERVICE=${{ github.event.inputs.version }}
+          LOG=${{ github.event.inputs.version }}
+          NGINX=${{ github.event.inputs.version }}
+          NOTARYSERVER=v2.8.3
+          NOTARYSIGNER=v2.8.3
+          TRIVY_ADAPTER=${{ github.event.inputs.version }}
+          CHARTMUSEUM=v2.8.3
+          REDIS=v2.8.3
+          POSTGRES=v2.8.3
+          EOF
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
       - name: Install Swagger
         run: |
           echo "=== Installing Swagger ==="
