@@ -49,18 +49,6 @@ jobs:
           docker buildx create --use
           docker buildx inspect --bootstrap
 
-      - name: Build Redis Base Image
-        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
-        run: |
-          echo "=== Building Redis Base Image ==="
-          make -f make/photon/Makefile _build_redis_base \
-            PLATFORM=linux/${{ github.event.inputs.arch }} \
-            BUILDARCH=${{ github.event.inputs.arch }} \
-            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
-            BASEIMAGENAMESPACE=goharbor \
-            BASEIMAGETAG=${{ github.event.inputs.version }} \
-            VERSIONTAG=${{ github.event.inputs.version }}
 
       - name: Build Redis Component
         if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'component_only'
