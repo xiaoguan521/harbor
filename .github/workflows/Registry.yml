@@ -66,6 +66,14 @@ jobs:
         with:
           go-version: '1.20'
 
+      - name: Compile Registryctl Binary
+        run: |
+          echo "=== Compiling Registryctl Binary ==="
+          cd src/registryctl
+          GOARCH=${{ github.event.inputs.arch }} CGO_ENABLED=0 go build -o ../../make/photon/registryctl/harbor_registryctl
+          cd ../..
+          chmod +x make/photon/registryctl/harbor_registryctl
+
       - name: Build Registryctl
         run: |
           echo "=== Building Registryctl Image ==="
@@ -89,3 +97,17 @@ jobs:
           
           echo "=== Registryctl Image Architecture ==="
           docker inspect goharbor/harbor-registryctl:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
+
+      - name: Save Images
+        run: |
+          echo "=== Saving Images ==="
+          mkdir -p images
+          docker save -o images/registry-photon.tar goharbor/registry-photon:${{ github.event.inputs.version }}
+          docker save -o images/harbor-registryctl.tar goharbor/harbor-registryctl:${{ github.event.inputs.version }}
+          
+      - name: Upload Images
+        uses: actions/upload-artifact@v3
+        with:
+          name: registry-components-${{ github.event.inputs.arch }}
+          path: images/
+          retention-days: 1
