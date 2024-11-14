@@ -47,20 +47,24 @@ jobs:
         run: |
           echo "=== Downloading Registry Binary ==="
           mkdir -p make/photon/registry/binary/
-          curl -L https://github.com/distribution/distribution/releases/download/${REGISTRY_VERSION}/registry_${REGISTRY_VERSION#v}_linux_${{ github.event.inputs.arch }}.tar.gz | tar xz -C make/photon/registry/binary/ registry
-          chmod +x make/photon/registry/binary/registry
-          mv make/photon/registry/binary/registry make/photon/registry/binary/registry_DO_NOT_USE_GC
+          curl -L https://github.com/distribution/distribution/releases/download/${REGISTRY_VERSION}/registry_${REGISTRY_VERSION#v}_linux_${{ github.event.inputs.arch }}.tar.gz | tar xz
+          chmod +x registry
+          cp registry make/photon/registry/binary/registry_DO_NOT_USE_GC
+
+      - name: Pull Base Image
+        run: |
+          echo "=== Pulling Base Image ==="
+          docker pull --platform linux/${{ github.event.inputs.arch }} goharbor/harbor-registry-base:${{ github.event.inputs.version }}
 
       - name: Build Registry
         run: |
           echo "=== Building Registry Image ==="
-          cd make/photon/registry
           docker buildx build \
             --platform linux/${{ github.event.inputs.arch }} \
             --load \
             --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${{ github.event.inputs.version }} \
-            -f Dockerfile \
+            -f make/photon/registry/Dockerfile \
             -t goharbor/registry-photon:${{ github.event.inputs.version }} .
 
       - name: Set up Go
@@ -75,16 +79,20 @@ jobs:
           GOARCH=${{ github.event.inputs.arch }} CGO_ENABLED=0 go build -o ../../make/photon/registryctl/harbor_registryctl
           cd ../..
 
+      - name: Pull Registryctl Base Image
+        run: |
+          echo "=== Pulling Registryctl Base Image ==="
+          docker pull --platform linux/${{ github.event.inputs.arch }} goharbor/harbor-registryctl-base:${{ github.event.inputs.version }}
+
       - name: Build Registryctl
         run: |
           echo "=== Building Registryctl Image ==="
-          cd make/photon/registryctl
           docker buildx build \
             --platform linux/${{ github.event.inputs.arch }} \
             --load \
             --build-arg harbor_base_namespace=goharbor \
             --build-arg harbor_base_image_version=${{ github.event.inputs.version }} \
-            -f Dockerfile \
+            -f make/photon/registryctl/Dockerfile \
             -t goharbor/harbor-registryctl:${{ github.event.inputs.version }} .
 
       - name: Verify Images
