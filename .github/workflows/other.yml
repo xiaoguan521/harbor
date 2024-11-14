@@ -53,7 +53,7 @@ jobs:
             GOBUILDIMAGE=golang:1.20 \
             DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
             DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
-            DOCKERCMD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --build-arg GOARCH=${{ github.event.inputs.arch }} . -f"
+            DOCKERCMD="docker buildx "
 
       
       - name: Build Components
