@@ -44,4 +44,48 @@ jobs:
           docker buildx create --use
           docker buildx inspect --bootstrap
 
-      - name: Buil
+      - name: Build Registry
+        run: |
+          echo "=== Building Registry Image ==="
+          make -f make/photon/Makefile _build_registry \
+            REGISTRYURL=${REGISTRYURL} \
+            REGISTRY_VERSION=${REGISTRY_VERSION} \
+            REGISTRY_SRC_TAG=${REGISTRY_VERSION} \
+            BUILDBIN=false \
+            PULL_BASE_FROM_DOCKERHUB=true \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Build Registryctl
+        run: |
+          echo "=== Building Registryctl Image ==="
+          make -f make/photon/Makefile _build_registryctl \
+            PULL_BASE_FROM_DOCKERHUB=true \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+
+      - name: Verify Images
+        run: |
+          echo "=== Harbor Registry Images ==="
+          docker images | grep "goharbor/.*registry"
+          
+          echo "=== Registry Image Architecture ==="
+          docker inspect goharbor/registry-photon:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
+          
+          echo "=== Registryctl Image Architecture ==="
+          docker inspect goharbor/harbor-registryctl:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
