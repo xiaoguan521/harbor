@@ -85,7 +85,7 @@ jobs:
         with:
           workflow: "Build Harbor Redis.yml"
           workflow_conclusion: success
-          name: redis-${{ github.event.inputs.arch }}
+          name: redis-photon-${{ github.event.inputs.arch }}
           path: images/redis/
       - name: Verify Redis Architecture
         run: |
