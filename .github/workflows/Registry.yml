@@ -16,7 +16,7 @@ on:
           - amd64
 
 env:
-  REGISTRY_VERSION: v2.8.1
+  REGISTRY_VERSION: v2.8.3
 
 jobs:
   BUILD_REGISTRY_COMPONENTS:
@@ -43,55 +43,24 @@ jobs:
           docker buildx create --use
           docker buildx inspect --bootstrap
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.20'
-
-      - name: Download and Prepare Registry
-        id: registry_prep
+      - name: Download Registry Binary
         run: |
-          REGISTRY_DIR=/tmp/registry
-          
-          # 下载并解压 registry 源码
-          mkdir -p ${REGISTRY_DIR}
-          curl -L https://github.com/distribution/distribution/archive/refs/tags/${REGISTRY_VERSION}.tar.gz | tar xz -C ${REGISTRY_DIR}
-          
-          # 使用 GOPATH 模式编译
-          export GOPATH=/tmp/go
-          mkdir -p $GOPATH/src/github.com/distribution
-          mv ${REGISTRY_DIR}/distribution-${REGISTRY_VERSION#v} $GOPATH/src/github.com/distribution/distribution
-          cd $GOPATH/src/github.com/distribution/distribution
-          # 初始化 Go 模块
-          go mod init github.com/distribution/distribution
-          go mod tidy
-          go mod vendor
-          # 编译 registry
-          GOARCH=${{ github.event.inputs.arch }} CGO_ENABLED=0 go build -o /tmp/registry ./cmd/registry
-          
-          # 创建必要的目录并复制文件
-          cd -
+          echo "=== Downloading Registry Binary ==="
           mkdir -p make/photon/registry/binary/
-          cp /tmp/registry make/photon/registry/binary/
-          
-          # 输出环境变量供后续步骤使用
-          echo "registry_src=$GOPATH/src/github.com/distribution/distribution" >> "$GITHUB_OUTPUT"
-          echo "registry_binary=/tmp/registry" >> "$GITHUB_OUTPUT"
+          curl -L https://github.com/distribution/distribution/releases/download/${REGISTRY_VERSION}/registry_${REGISTRY_VERSION#v}_linux_${{ github.event.inputs.arch }}.tar.gz | tar xz -C make/photon/registry/binary/ registry
+          chmod +x make/photon/registry/binary/registry
 
       - name: Build Registry
         run: |
           echo "=== Building Registry Image ==="
           make -f make/photon/Makefile _build_registry \
-            REGISTRY_SRC=${{ steps.registry_prep.outputs.registry_src }} \
-            REGISTRY_VERSION=${REGISTRY_VERSION} \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
             DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
             DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
-            VERSIONTAG=${{ github.event.inputs.version }} \
-            PUSHFLAG=false
+            VERSIONTAG=${{ github.event.inputs.version }}
 
       - name: Compile Registryctl
         run: |
