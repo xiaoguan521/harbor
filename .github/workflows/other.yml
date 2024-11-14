@@ -45,20 +45,25 @@ jobs:
           # 修改 go.mod
           sed -i 's/go 1.23.2/go 1.21/' src/go.mod
           
-          # 修改 Makefile 中的 _compile_and_build_exporter 目标
-          sed -i '/_compile_and_build_exporter:/,/Done\./c\
-          _compile_and_build_exporter:\
-          \t@$$(call _build_base,$$(EXPORTER),$$(DOCKERFILEPATH_EXPORTER))\
-          \t@echo "compiling and building image for exporter..."\
-          \t@$$(DOCKERBUILD) \\\
-          \t\t--build-arg harbor_base_image_version=$$(BASEIMAGETAG) \\\
-          \t\t--build-arg harbor_base_namespace=$$(BASEIMAGENAMESPACE) \\\
-          \t\t--build-arg build_image=$$(GOBUILDIMAGE) \\\
-          \t\t-f $${DOCKERFILEPATH_EXPORTER}/$${DOCKERFILENAME_EXPORTER} \\\
-          \t\t-t $$(DOCKERIMAGENAME_EXPORTER):$$(VERSIONTAG) \\\
-          \t\t--load \\\
-          \t\t.\
-          \t@echo "Done."' make/photon/Makefile
+          # 创建临时 Makefile 修改
+          cat > makefile_patch.txt << 'EOF'
+          _compile_and_build_exporter:
+          	@$(call _build_base,$(EXPORTER),$(DOCKERFILEPATH_EXPORTER))
+          	@echo "compiling and building image for exporter..."
+          	@$(DOCKERBUILD) \
+          		--build-arg harbor_base_image_version=$(BASEIMAGETAG) \
+          		--build-arg harbor_base_namespace=$(BASEIMAGENAMESPACE) \
+          		--build-arg build_image=$(GOBUILDIMAGE) \
+          		-f ${DOCKERFILEPATH_EXPORTER}/${DOCKERFILENAME_EXPORTER} \
+          		-t $(DOCKERIMAGENAME_EXPORTER):$(VERSIONTAG) \
+          		--load \
+          		.
+          	@echo "Done."
+          EOF
+          
+          # 使用 sed 替换 Makefile 中的目标
+          sed -i '/_compile_and_build_exporter:/,/Done\./!b;r makefile_patch.txt' make/photon/Makefile
+          sed -i '/_compile_and_build_exporter:/,/Done\./d' make/photon/Makefile
           
           # 执行构建
           make -f make/photon/Makefile _compile_and_build_exporter \
