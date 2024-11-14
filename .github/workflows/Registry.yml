@@ -62,9 +62,15 @@ jobs:
           mkdir -p $GOPATH/src/github.com/distribution
           mv ${REGISTRY_DIR}/distribution-${REGISTRY_VERSION#v} $GOPATH/src/github.com/distribution/distribution
           cd $GOPATH/src/github.com/distribution/distribution
+          # 初始化 Go 模块
+          go mod init github.com/distribution/distribution
+          go mod tidy
+          go mod vendor
+          # 编译 registry
           GOARCH=${{ github.event.inputs.arch }} CGO_ENABLED=0 go build -o /tmp/registry ./cmd/registry
           
           # 创建必要的目录并复制文件
+          cd -
           mkdir -p make/photon/registry/binary/
           cp /tmp/registry make/photon/registry/binary/
           
