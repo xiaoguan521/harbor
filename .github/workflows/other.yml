@@ -59,8 +59,7 @@ jobs:
       - name: Build Components
         run: |
           echo "=== Building Components ==="
-          make -f make/photon/Makefile \          
-            _build_log \
+          make -f make/photon/Makefile _build_log \
             PULL_BASE_FROM_DOCKERHUB=true \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
