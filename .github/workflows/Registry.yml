@@ -17,6 +17,7 @@ on:
 
 env:
   REGISTRY_VERSION: v2.8.3
+  REGISTRYURL: "https://github.com/distribution/distribution/releases/download/v2.8.3/registry_2.8.3_linux_${{ github.event.inputs.arch }}.tar.gz"
 
 jobs:
   BUILD_REGISTRY_COMPONENTS:
@@ -43,65 +44,27 @@ jobs:
           docker buildx create --use
           docker buildx inspect --bootstrap
 
-      - name: Download Registry Binary
-        run: |
-          echo "=== Downloading Registry Binary ==="
-          mkdir -p make/photon/registry/binary/
-          curl -L https://github.com/distribution/distribution/releases/download/${REGISTRY_VERSION}/registry_${REGISTRY_VERSION#v}_linux_${{ github.event.inputs.arch }}.tar.gz | tar xz
-          chmod +x registry
-          cp registry make/photon/registry/binary/registry_DO_NOT_USE_GC
-
-      - name: Pull Base Image
-        run: |
-          echo "=== Pulling Base Image ==="
-          docker pull --platform linux/${{ github.event.inputs.arch }} goharbor/harbor-registry-base:${{ github.event.inputs.version }}
-
       - name: Build Registry
         run: |
           echo "=== Building Registry Image ==="
-          docker buildx build \
-            --platform linux/${{ github.event.inputs.arch }} \
-            --load \
-            --build-arg harbor_base_namespace=goharbor \
-            --build-arg harbor_base_image_version=${{ github.event.inputs.version }} \
-            -f make/photon/registry/Dockerfile \
-            -t goharbor/registry-photon:${{ github.event.inputs.version }} .
+          make -f make/photon/Makefile _build_registry \
+            REGISTRYURL=${REGISTRYURL} \
+            REGISTRY_VERSION=${REGISTRY_VERSION} \
+            REGISTRY_SRC_TAG=${REGISTRY_VERSION} \
+            BUILDBIN=false \
+            PULL_BASE_FROM_DOCKERHUB=true \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.20'
-
-      - name: Compile Registryctl
-        run: |
-          echo "=== Compiling Registryctl ==="
-          cd src/registryctl
-          GOARCH=${{ github.event.inputs.arch }} CGO_ENABLED=0 go build -o ../../make/photon/registryctl/harbor_registryctl
-          cd ../..
-
-      - name: Pull Registryctl Base Image
-        run: |
-          echo "=== Pulling Registryctl Base Image ==="
-          docker pull --platform linux/${{ github.event.inputs.arch }} goharbor/harbor-registryctl-base:${{ github.event.inputs.version }}
-
-      - name: Build Registryctl
-        run: |
-          echo "=== Building Registryctl Image ==="
-          docker buildx build \
-            --platform linux/${{ github.event.inputs.arch }} \
-            --load \
-            --build-arg harbor_base_namespace=goharbor \
-            --build-arg harbor_base_image_version=${{ github.event.inputs.version }} \
-            -f make/photon/registryctl/Dockerfile \
-            -t goharbor/harbor-registryctl:${{ github.event.inputs.version }} .
-
-      - name: Verify Images
+      - name: Verify Registry Image
         run: |
           echo "=== Harbor Registry Images ==="
           docker images | grep "goharbor/.*registry"
           
           echo "=== Registry Image Architecture ==="
           docker inspect goharbor/registry-photon:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
-          
-          echo "=== Registryctl Image Architecture ==="
-          docker inspect goharbor/harbor-registryctl:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
