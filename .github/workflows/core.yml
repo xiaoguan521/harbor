@@ -43,14 +43,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'
+          go-version: '1.23'  # 更新到最新的稳定版本
 
       - name: Compile Core Binary
         run: |
           echo "=== Compiling Core Binary ==="
-          cd src/core
-          GOARCH=${{ github.event.inputs.arch }} CGO_ENABLED=0 go build -o ../../make/photon/core/harbor_core
-          cd ../..
+          cd src
+          GOARCH=${{ github.event.inputs.arch }} CGO_ENABLED=0 go build -o ../make/photon/core/harbor_core ./core
+          cd ..
 
       - name: Build Core
         run: |
