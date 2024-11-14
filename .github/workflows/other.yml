@@ -60,7 +60,7 @@ jobs:
       - name: Verify Images
         run: |
           echo "=== Harbor Auxiliary Images ==="
-          docker images | grep -E "goharbor/.*(trivy-adapter|exporter|log)"
+          docker images 
           
           echo "=== Trivy Adapter Image Architecture ==="
           docker inspect goharbor/trivy-adapter-photon:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
