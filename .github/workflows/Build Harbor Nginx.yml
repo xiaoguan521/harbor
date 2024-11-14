@@ -62,3 +62,16 @@ jobs:
             echo "=== $img ==="
             docker inspect $img | grep -A 3 '"Architecture"'
           done
+    # 保存镜像
+      - name: Save Docker image
+        run: |
+          mkdir -p artifacts
+          docker save goharbor/nginx-photon:${{ github.event.inputs.version }} | gzip > artifacts/nginx-photon-${{ github.event.inputs.arch }}.tar.gz
+
+      # 上传构建产物
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: nginx-photon-${{ github.event.inputs.arch }}
+          path: artifacts/nginx-photon-${{ github.event.inputs.arch }}.tar.gz
+          retention-days: 5
