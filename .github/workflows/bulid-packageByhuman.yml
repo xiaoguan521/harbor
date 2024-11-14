@@ -163,7 +163,6 @@ jobs:
       - name: Prepare installer files
         run: |
           # 复制必要的安装文件
-          cp LICENSE ./
           cp make/photon/prepare/templates/install.sh ./
           cp make/photon/prepare/templates/harbor.yml.tmpl ./harbor.yml
           
