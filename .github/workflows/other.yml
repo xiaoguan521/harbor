@@ -71,10 +71,8 @@ jobs:
       - name: Verify Images
         run: |
           echo "=== Harbor Auxiliary Images ==="
-          docker images 
-          
-          echo "=== Trivy Adapter Image Architecture ==="
-          docker inspect goharbor/trivy-adapter-photon:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
+          docker images           
+    
           
           echo "=== Exporter Image Architecture ==="
           docker inspect goharbor/harbor-exporter:${{ github.event.inputs.version }} | grep -A 3 '"Architecture"'
@@ -85,8 +83,7 @@ jobs:
       - name: Save Images
         run: |
           echo "=== Saving Images ==="
-          mkdir -p images
-          docker save -o images/trivy-adapter.tar goharbor/trivy-adapter-photon:${{ github.event.inputs.version }}
+          mkdir -p images    
           docker save -o images/harbor-exporter.tar goharbor/harbor-exporter:${{ github.event.inputs.version }}
           docker save -o images/harbor-log.tar goharbor/harbor-log:${{ github.event.inputs.version }}
           
