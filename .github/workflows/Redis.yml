@@ -1,0 +1,87 @@
+name: "Build Harbor Redis"
+on: 
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Harbor version (e.g., v2.2.2)'
+        required: true
+        default: 'v2.12.0'
+      arch:
+        description: 'Build architecture'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - amd64
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - base_only
+          - component_only
+
+jobs:
+  BUILD_REDIS:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout Harbor source
+        uses: actions/checkout@v3
+        with:
+          repository: goharbor/harbor
+          ref: ${{ github.event.inputs.version }}
+          
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/${{ github.event.inputs.arch }}
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/${{ github.event.inputs.arch }}
+        
+      - name: Initialize Docker Buildx
+        run: |
+          docker buildx create --use
+          docker buildx inspect --bootstrap
+
+      - name: Build Redis Base Image
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'base_only'
+        run: |
+          echo "=== Building Redis Base Image ==="
+          make -f make/photon/Makefile _build_redis_base \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+
+      - name: Build Redis Component
+        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'component_only'
+        run: |
+          echo "=== Building Redis Component ==="
+          make -f make/photon/Makefile _build_redis \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+
+      - name: Verify Images
+        run: |
+          echo "=== Harbor Redis Images ==="
+          docker images | grep "goharbor/.*redis"
+          
+          echo "=== Image Architectures ==="
+          for img in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "goharbor/.*redis"); do
+            echo "=== $img ==="
+            docker inspect $img | grep -A 3 '"Architecture"'
+          done
