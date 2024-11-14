@@ -1,41 +1,64 @@
-name: "Build Harbor Nginx ARM64"
+name: "Build Harbor Nginx"
 on: 
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Harbor version (e.g., v2.2.2)'
+        required: true
+        default: 'v2.12.0'
+      arch:
+        description: 'Build architecture'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - amd64
 
 jobs:
-  BUILD_DB:
+  BUILD_NGINX:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout Harbor source
         uses: actions/checkout@v3
         with:
           repository: goharbor/harbor
-          ref: v2.12.0
+          ref: ${{ github.event.inputs.version }}
           
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
-          platforms: linux/arm64
+          platforms: linux/${{ github.event.inputs.arch }}
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Build DB
+        with:
+          platforms: linux/${{ github.event.inputs.arch }}
+        
+      - name: Initialize Docker Buildx
         run: |
-         make -f make/photon/Makefile _build_nginx \
-          PLATFORM=linux/arm64 \
-          BUILDARCH=arm64 \
-          DOCKERBUILD="docker buildx build --platform linux/arm64 --load" \
-          DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/arm64 --load --pull" \
-          BASEIMAGENAMESPACE=goharbor \
-          BASEIMAGETAG=v2.12.0 \
-          VERSIONTAG=v2.12.0 \
-          DOCKERIMAGENAME_DB=goharbor/harbor-nginx
+          docker buildx create --use
+          docker buildx inspect --bootstrap
 
-      - name: Verify Image
+      - name: Build Nginx
         run: |
-          echo "=== DB Images ==="
-          docker images           
-           
-          echo "=== DB Image Architecture ==="
-          docker inspect goharbor/harbor-nginx:v2.12.0 | grep -A 3 '"Architecture"'
+          echo "=== Building Nginx Image ==="
+          make -f make/photon/Makefile _build_nginx \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }}
+
+      - name: Verify Images
+        run: |
+          echo "=== Harbor Nginx Images ==="
+          docker images | grep "goharbor/.*nginx"
+          
+          echo "=== Image Architectures ==="
+          for img in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "goharbor/.*nginx"); do
+            echo "=== $img ==="
+            docker inspect $img | grep -A 3 '"Architecture"'
+          done
