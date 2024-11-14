@@ -35,8 +35,21 @@ jobs:
       - name: Verify Image
         run: |
           echo "=== DB Images ==="
-          docker images | grep harbor-db
-          
+          docker images | grep harbor-db         
            
           echo "=== DB Image Architecture ==="
           docker inspect goharbor/harbor-db:v2.12.0 | grep -A 3 '"Architecture"'
+     # 保存镜像
+      - name: Save Docker image
+        run: |
+          mkdir -p artifacts
+          docker save goharbor/harbor-db:${{ github.event.inputs.version }} | gzip > artifacts/db-${{ github.event.inputs.arch }}.tar
+
+      # 上传构建产物
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: db-${{ github.event.inputs.arch }}
+          path: artifacts/db-${{ github.event.inputs.arch }}.tar
+          retention-days: 5     
+          
