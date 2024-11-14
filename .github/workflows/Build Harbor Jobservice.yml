@@ -78,12 +78,12 @@ jobs:
       - name: Save Docker image
         run: |
           mkdir -p artifacts
-          docker save goharbor/harbor-jobservice:${{ github.event.inputs.version }} | gzip > artifacts/harbor-jobservice-${{ github.event.inputs.arch }}.tar.gz
+          docker save goharbor/harbor-jobservice:${{ github.event.inputs.version }} | gzip > artifacts/harbor-jobservice-${{ github.event.inputs.arch }}.tar
 
       # 上传构建产物
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
           name: harbor-jobservice-${{ github.event.inputs.arch }}
-          path: artifacts/harbor-jobservice-${{ github.event.inputs.arch }}.tar.gz
+          path: artifacts/harbor-jobservice-${{ github.event.inputs.arch }}.tar
           retention-days: 5     
