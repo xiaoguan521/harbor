@@ -84,6 +84,6 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: redis-photon-image-${{ github.event.inputs.arch }}
+          name: redis-photon-${{ github.event.inputs.arch }}
           path: artifacts/redis-photon-${{ github.event.inputs.arch }}.tar.gz
           retention-days: 5
