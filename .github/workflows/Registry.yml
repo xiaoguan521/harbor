@@ -49,19 +49,22 @@ jobs:
           mkdir -p make/photon/registry/binary/
           curl -L https://github.com/distribution/distribution/releases/download/${REGISTRY_VERSION}/registry_${REGISTRY_VERSION#v}_linux_${{ github.event.inputs.arch }}.tar.gz | tar xz -C make/photon/registry/binary/ registry
           chmod +x make/photon/registry/binary/registry
+          mv make/photon/registry/binary/registry make/photon/registry/binary/registry_DO_NOT_USE_GC
 
       - name: Build Registry
         run: |
           echo "=== Building Registry Image ==="
-          make -f make/photon/Makefile _build_registry \
-            BUILDBIN=true \
-            PLATFORM=linux/${{ github.event.inputs.arch }} \
-            BUILDARCH=${{ github.event.inputs.arch }} \
-            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
-            BASEIMAGENAMESPACE=goharbor \
-            BASEIMAGETAG=${{ github.event.inputs.version }} \
-            VERSIONTAG=${{ github.event.inputs.version }}
+          cd make/photon/registry
+          docker buildx build \
+            --platform linux/${{ github.event.inputs.arch }} \
+            --load \
+            -f Dockerfile \
+            -t goharbor/registry-photon:${{ github.event.inputs.version }} .
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
 
       - name: Compile Registryctl
         run: |
@@ -73,14 +76,12 @@ jobs:
       - name: Build Registryctl
         run: |
           echo "=== Building Registryctl Image ==="
-          make -f make/photon/Makefile _build_registryctl \
-            PLATFORM=linux/${{ github.event.inputs.arch }} \
-            BUILDARCH=${{ github.event.inputs.arch }} \
-            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
-            BASEIMAGENAMESPACE=goharbor \
-            BASEIMAGETAG=${{ github.event.inputs.version }} \
-            VERSIONTAG=${{ github.event.inputs.version }}
+          cd make/photon/registryctl
+          docker buildx build \
+            --platform linux/${{ github.event.inputs.arch }} \
+            --load \
+            -f Dockerfile \
+            -t goharbor/harbor-registryctl:${{ github.event.inputs.version }} .
 
       - name: Verify Images
         run: |
