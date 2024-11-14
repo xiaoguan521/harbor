@@ -46,8 +46,8 @@ jobs:
             PULL_BASE_FROM_DOCKERHUB=true \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
-            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --build-arg GOARCH=${{ github.event.inputs.arch }}" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull --build-arg GOARCH=${{ github.event.inputs.arch }}" \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
