@@ -17,7 +17,7 @@ on:
 
 jobs:
   BUILD_PORTAL:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Harbor source
         uses: actions/checkout@v3
@@ -40,14 +40,25 @@ jobs:
           docker buildx create --use
           docker buildx inspect --bootstrap
 
+      - name: Cache NPM packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            src/portal/node_modules
+            src/portal/dist
+          key: ${{ runner.os }}-portal-${{ hashFiles('src/portal/package*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-portal-
+
       - name: Build Portal
         run: |
           echo "=== Building Portal Image ==="
           make -f make/photon/Makefile _build_portal \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
-            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --progress=plain" \
             DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            PARALLEL_BUILDS=$(($(nproc) + 1)) \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }}
