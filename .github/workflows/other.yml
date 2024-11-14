@@ -39,12 +39,23 @@ jobs:
         run: |
           docker buildx create --use
           docker buildx inspect --bootstrap
-
+      - name: Build Trivy Adapter
+        run: |
+          echo "=== Building Trivy Adapter ==="
+          make -f make/photon/Makefile _build_trivy_adapter \
+            PULL_BASE_FROM_DOCKERHUB=true \
+            PLATFORM=linux/${{ github.event.inputs.arch }} \
+            BUILDARCH=${{ github.event.inputs.arch }} \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            BASEIMAGENAMESPACE=goharbor \
+            BASEIMAGETAG=${{ github.event.inputs.version }} \
+            VERSIONTAG=${{ github.event.inputs.version }} \
+            GOBUILDIMAGE=golang:1.20
       - name: Build Components
         run: |
           echo "=== Building Components ==="
           make -f make/photon/Makefile \
-            _build_trivy_adapter \
             _compile_and_build_exporter \
             _build_log \
             PULL_BASE_FROM_DOCKERHUB=true \
