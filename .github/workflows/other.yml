@@ -46,10 +46,8 @@ jobs:
           
           # 先检查原始 Makefile
           echo "=== Original Makefile Content ==="
-          cat make/photon/Makefile | grep -A 10 "_compile_and_build_exporter:"
-          
-          # 修改 go.mod
-          sed -i 's/go 1.23.2/go 1.21/' src/go.mod
+          cat make/photon/Makefile | grep -A 10 "_compile_and_build_exporter:"          
+      
           
           # 修改 Makefile
           sed -i 's/$(DOCKERCMD) build/$(DOCKERBUILD)/g' make/photon/Makefile
@@ -66,7 +64,7 @@ jobs:
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
-            GOBUILDIMAGE=golang:1.21 \
+            GOBUILDIMAGE=golang:1.23.2 \
             DOCKERCMD="docker buildx" \
             DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
             DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
