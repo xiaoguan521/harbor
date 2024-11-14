@@ -50,10 +50,11 @@ jobs:
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }} \
-            GOBUILDIMAGE=golang:1.23 \
+            GOBUILDIMAGE=golang:1.21 \
+            DOCKERCMD="docker buildx" \
             DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
             DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
-            DOCKERCMD="docker buildx "
+            PUSHBASEIMAGE=false
 
       
       - name: Build Components
