@@ -56,13 +56,13 @@ jobs:
       - name: Save Docker image
         run: |
           mkdir -p artifacts
-          docker save goharbor/harbor-db:${{ github.event.inputs.version }} | gzip > artifacts/db-${{ github.event.inputs.arch }}.tar
+          docker save goharbor/harbor-db:${{ github.event.inputs.version }} | gzip > artifacts/harbor-db-${{ github.event.inputs.arch }}.tar
 
       # 上传构建产物
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: db-${{ github.event.inputs.arch }}
-          path: artifacts/db-${{ github.event.inputs.arch }}.tar
+          name: harbor-db-${{ github.event.inputs.arch }}
+          path: artifacts/harbor-db-${{ github.event.inputs.arch }}.tar
           retention-days: 5     
           
