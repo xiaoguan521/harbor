@@ -42,7 +42,6 @@ jobs:
       - name: Build Exporter
         run: |
           echo "=== Building Exporter ==="
-          # 设置构建基础镜像的变量
           make -f make/photon/Makefile _compile_and_build_exporter \
             PULL_BASE_FROM_DOCKERHUB=true \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
@@ -54,7 +53,9 @@ jobs:
             GOBUILDIMAGE=golang:1.20 \
             DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
             DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
-            DOCKERCMD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --build-arg GOARCH=${{ github.event.inputs.arch }}"
+            DOCKERCMD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --build-arg GOARCH=${{ github.event.inputs.arch }} . -f"
+
+      
       - name: Build Components
         run: |
           echo "=== Building Components ==="
