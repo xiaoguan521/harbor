@@ -73,3 +73,17 @@ jobs:
             echo "=== $img ==="
             docker inspect $img | grep -A 3 '"Architecture"'
           done
+          
+       # 保存镜像
+      - name: Save Docker image
+        run: |
+          mkdir -p artifacts
+          docker save goharbor/redis-photon:${{ github.event.inputs.version }} | gzip > artifacts/redis-photon-${{ github.event.inputs.arch }}.tar
+
+      # 上传构建产物
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: redis-photon-${{ github.event.inputs.arch }}
+          path: artifacts/redis-photon-${{ github.event.inputs.arch }}.tar
+          retention-days: 5

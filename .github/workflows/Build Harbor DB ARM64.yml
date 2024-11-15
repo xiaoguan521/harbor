@@ -1,6 +1,19 @@
 name: "Build Harbor DB ARM64"
 on: 
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Harbor version (e.g., v2.2.2)'
+        required: true
+        default: 'v2.12.0'
+      arch:
+        description: 'Build architecture'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - amd64
 
 jobs:
   BUILD_DB:
@@ -35,8 +48,21 @@ jobs:
       - name: Verify Image
         run: |
           echo "=== DB Images ==="
-          docker images | grep harbor-db
-          
+          docker images | grep harbor-db         
            
           echo "=== DB Image Architecture ==="
           docker inspect goharbor/harbor-db:v2.12.0 | grep -A 3 '"Architecture"'
+     # 保存镜像
+      - name: Save Docker image
+        run: |
+          mkdir -p artifacts
+          docker save goharbor/harbor-db:${{ github.event.inputs.version }} | gzip > artifacts/harbor-db-${{ github.event.inputs.arch }}.tar
+
+      # 上传构建产物
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: harbor-db-${{ github.event.inputs.arch }}
+          path: artifacts/harbor-db-${{ github.event.inputs.arch }}.tar
+          retention-days: 5     
+          

@@ -85,7 +85,7 @@ jobs:
         with:
           workflow: "Build Harbor Redis.yml"
           workflow_conclusion: success
-          name: redis-${{ github.event.inputs.arch }}
+          name: redis-photon-${{ github.event.inputs.arch }}
           path: images/redis/
       - name: Verify Redis Architecture
         run: |
@@ -111,7 +111,7 @@ jobs:
         with:
           workflow: "Build Harbor Nginx.yml"
           workflow_conclusion: success
-          name: nginx-${{ github.event.inputs.arch }}
+          name: nginx-photon-${{ github.event.inputs.arch }}
           path: images/nginx/
       - name: Verify Nginx Architecture
         run: |
@@ -124,7 +124,7 @@ jobs:
         with:
           workflow: "Build Harbor Jobservice.yml"
           workflow_conclusion: success
-          name: jobservice-${{ github.event.inputs.arch }}
+          name: harbor-jobservice-${{ github.event.inputs.arch }}
           path: images/jobservice/
       - name: Verify Jobservice Architecture
         run: |
