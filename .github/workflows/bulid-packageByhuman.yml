@@ -175,13 +175,26 @@ jobs:
 
       - name: Prepare installer files
         run: |
+          echo "=== Current Working Directory ==="
+          pwd
+          
+          echo "=== Current Directory Contents ==="
+          ls -la
+          
+          echo "=== make Directory Contents ==="
+          ls -la make || echo "make directory not found"
+          
           # 创建所需目录
           mkdir -p make/photon/portal/dist
-
-          # 复制必要文件
-          cp LICENSE ./
-          cp make/photon/prepare/templates/install.sh ./
-          cp make/photon/prepare/templates/harbor.yml.tmpl ./harbor.yml
+          mkdir -p harbor-offline-installer
+          
+          # 复制文件到打包目录（使用正确的路径）
+          cp LICENSE harbor-offline-installer/
+          cp make/install.sh harbor-offline-installer/
+          cp make/harbor.yml.tmpl harbor-offline-installer/harbor.yml
+          
+          echo "=== Harbor Installer Directory Contents ==="
+          ls -la harbor-offline-installer/
           
           # 准备portal文件
           make -f make/photon/Makefile prepare_portal
