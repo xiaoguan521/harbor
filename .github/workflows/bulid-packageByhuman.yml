@@ -149,6 +149,13 @@ jobs:
         with:
           repository: goharbor/harbor
           ref: ${{ github.event.inputs.version }}
+          
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r make/photon/prepare/requirements.txt
 
       - name: Download artifacts
         uses: actions/download-artifact@v3
@@ -162,20 +169,27 @@ jobs:
 
       - name: Prepare installer files
         run: |
-          # 复制必要的安装文件
+          # 创建所需目录
+          mkdir -p make/photon/portal/dist
+
+          # 复制必要文件
           cp LICENSE ./
           cp make/photon/prepare/templates/install.sh ./
           cp make/photon/prepare/templates/harbor.yml.tmpl ./harbor.yml
           
-          # 准备安装脚本和配置文件
-          chmod +x install.sh
-          make prepare
+          # 准备portal文件
           make -f make/photon/Makefile prepare_portal
+          
+          # 运行prepare脚本
+          python3 make/photon/prepare/main.py prepare
 
       - name: Build installer package
         run: |
+          # 确保common.sh可执行
+          chmod +x make/common.sh
+          
           # 创建完整的离线包
-          make package_offline VERSIONTAG=${{ github.event.inputs.version }} PKGVERSIONTAG=${{ github.event.inputs.version }} BUILDBIN=false
+          make package_offline VERSIONTAG=${{ github.event.inputs.version }} PKGVERSIONTAG=${{ github.event.inputs.version }} BUILDBIN=false PULL_IMAGES=false
 
       - name: Verify Package Content
         run: |
