@@ -49,21 +49,85 @@ jobs:
           docker buildx create --use
           docker buildx inspect --bootstrap
 
+      - name: Collect build environment info
+        run: |
+          echo "=== 构建环境信息 ==="
+          echo "Docker 版本："
+          docker version
+          echo "QEMU 版本："
+          qemu-aarch64 --version || true
+          echo "系统信息："
+          uname -a
+          echo "Buildx 信息："
+          docker buildx version
+          docker buildx ls
+
+      - name: Verify Base Image Architecture
+        run: |
+          echo "=== 检查基础镜像架构 ==="
+          docker pull --platform linux/${{ github.event.inputs.arch }} photon:4.0
+          docker inspect photon:4.0 | grep -A 3 '"Architecture"'
+          if [[ "$(docker inspect photon:4.0 --format '{{.Architecture}}')" != "${{ github.event.inputs.arch }}" ]]; then
+            echo "警告: 基础镜像架构不匹配"
+            exit 1
+          fi
+
+      - name: Check Dependencies Architecture
+        run: |
+          echo "=== 检查 Redis 依赖架构 ==="
+          find . -type f -executable -exec file {} \; | grep -i elf || true
+          
+          if [ -f "redis-server" ]; then
+            file redis-server
+            if ! file redis-server | grep -i "${{ github.event.inputs.arch }}"; then
+              echo "警告: Redis 二进制文件架构不匹配"
+              exit 1
+            fi
+          fi
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-redis-${{ github.event.inputs.arch }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-redis-${{ github.event.inputs.arch }}-
+            ${{ runner.os }}-buildx-redis-
 
       - name: Build Redis Component
-        if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'component_only'
+        id: build_redis
+        env:
+          DOCKER_DEFAULT_PLATFORM: linux/${{ github.event.inputs.arch }}
+          BUILDX_PLATFORM: linux/${{ github.event.inputs.arch }}
         run: |
           echo "=== Building Redis Component ==="
+          export DOCKER_DEFAULT_PLATFORM=linux/${{ github.event.inputs.arch }}
+          
           make -f make/photon/Makefile _build_redis \
             PLATFORM=linux/${{ github.event.inputs.arch }} \
             BUILDARCH=${{ github.event.inputs.arch }} \
-            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load" \
-            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} --load --pull" \
+            DOCKERBUILD="docker buildx build --platform linux/${{ github.event.inputs.arch }} \
+              --cache-from type=local,src=/tmp/.buildx-cache \
+              --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+              --load" \
+            DOCKERBUILD_WITH_PULL_PARA="docker buildx build --platform linux/${{ github.event.inputs.arch }} \
+              --cache-from type=local,src=/tmp/.buildx-cache \
+              --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+              --load --pull" \
             BASEIMAGENAMESPACE=goharbor \
             BASEIMAGETAG=${{ github.event.inputs.version }} \
             VERSIONTAG=${{ github.event.inputs.version }}
 
+      - name: Check build status
+        if: always()
+        run: |
+          if [ "${{ steps.build_redis.outcome }}" != "success" ]; then
+            echo "构建失败，请检查日志"
+            exit 1
+          fi
+
       - name: Verify Images
+        if: success()
         run: |
           echo "=== Harbor Redis Images ==="
           docker images | grep "goharbor/.*redis"
@@ -74,16 +138,68 @@ jobs:
             docker inspect $img | grep -A 3 '"Architecture"'
           done
           
-       # 保存镜像
+      - name: Verify Final Image
+        if: success()
+        run: |
+          echo "=== 详细检查最终镜像 ==="
+          IMAGE_NAME="goharbor/redis-photon:${{ github.event.inputs.version }}"
+          
+          echo "1. 检查镜像架构"
+          docker inspect $IMAGE_NAME --format '{{.Architecture}}'
+          
+          echo "2. 检查镜像层"
+          docker history $IMAGE_NAME
+          
+          echo "3. 检查运行时二进制文件"
+          docker run --rm --platform linux/${{ github.event.inputs.arch }} $IMAGE_NAME file /usr/bin/redis-server
+          
+          echo "4. 检查动态链接库"
+          docker run --rm --platform linux/${{ github.event.inputs.arch }} $IMAGE_NAME ldd /usr/bin/redis-server
+          
+          echo "5. 验证 Redis 功能"
+          docker run --rm --platform linux/${{ github.event.inputs.arch }} $IMAGE_NAME redis-cli --version
+
+      - name: Runtime Verification
+        if: success()
+        run: |
+          echo "=== 运行时验证 ==="
+          IMAGE_NAME="goharbor/redis-photon:${{ github.event.inputs.version }}"
+          
+          docker run -d --platform linux/${{ github.event.inputs.arch }} --name test-redis $IMAGE_NAME
+          sleep 5
+          
+          if [ "$(docker inspect -f '{{.State.Running}}' test-redis)" != "true" ]; then
+            echo "容器未能正常运行"
+            docker logs test-redis
+            exit 1
+          fi
+          
+          docker exec test-redis redis-cli ping
+          docker rm -f test-redis
+
+      - name: Check Dependencies Versions
+        if: success()
+        run: |
+          echo "=== 检查依赖版本 ==="
+          IMAGE_NAME="goharbor/redis-photon:${{ github.event.inputs.version }}"
+          
+          echo "系统库版本："
+          docker run --rm --platform linux/${{ github.event.inputs.arch }} $IMAGE_NAME rpm -qa | sort
+          
+          echo "Redis 版本："
+          docker run --rm --platform linux/${{ github.event.inputs.arch }} $IMAGE_NAME redis-server --version
+
       - name: Save Docker image
+        if: success()
         run: |
           mkdir -p artifacts
           docker save goharbor/redis-photon:${{ github.event.inputs.version }} | gzip > artifacts/redis-photon-${{ github.event.inputs.arch }}.tar
 
-      # 上传构建产物
       - name: Upload artifacts
+        if: success()
         uses: actions/upload-artifact@v3
         with:
           name: redis-photon-${{ github.event.inputs.arch }}
           path: artifacts/redis-photon-${{ github.event.inputs.arch }}.tar
           retention-days: 5
+          if-no-files-found: error
