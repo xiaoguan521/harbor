@@ -1,0 +1,34 @@
+# Templ-based Harbor UI Build
+
+.PHONY: templ-generate templ-server templ-clean
+
+# Generate templ templates
+templ-generate:
+	@echo "Generating templ templates..."
+	@go run github.com/a-h/templ/cmd/templ@latest generate templates/
+
+# Build and run the templ server
+templ-server: templ-generate
+	@echo "Starting templ server..."
+	@go run cmd/templ-server/main.go
+
+# Clean generated templ files
+templ-clean:
+	@echo "Cleaning generated templ files..."
+	@find templates -name "*_templ.go" -type f -delete
+
+# Build the templ server binary
+templ-build: templ-generate
+	@echo "Building templ server..."
+	@go build -o bin/templ-server cmd/templ-server/main.go
+
+# Install templ CLI tool
+templ-install:
+	@echo "Installing templ CLI..."
+	@go install github.com/a-h/templ/cmd/templ@latest
+
+# Development target - runs server with auto-reload
+templ-dev: templ-generate
+	@echo "Starting templ server in development mode..."
+	@echo "Visit http://localhost:8080 to view the Harbor UI"
+	@go run cmd/templ-server/main.go

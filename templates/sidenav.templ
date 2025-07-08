@@ -1,0 +1,44 @@
+package templates
+
+type SideNavItem struct {
+    URL      string
+    Label    string
+    Icon     string
+    Active   bool
+    Children []SideNavItem
+}
+
+type SideNavProps struct {
+    Items []SideNavItem
+}
+
+templ SideNavigation(props SideNavProps) {
+    <nav class="side-nav">
+        <ul class="side-nav-items">
+            for _, item := range props.Items {
+                <li class="side-nav-item">
+                    <a href={ templ.SafeURL(item.URL) } class={ templ.KV("active", item.Active) }>
+                        if item.Icon != "" {
+                            <i class={ "icon " + item.Icon }></i>
+                        }
+                        { item.Label }
+                    </a>
+                    if len(item.Children) > 0 {
+                        <ul class="side-nav-children">
+                            for _, child := range item.Children {
+                                <li>
+                                    <a href={ templ.SafeURL(child.URL) } class={ templ.KV("active", child.Active) }>
+                                        if child.Icon != "" {
+                                            <i class={ "icon " + child.Icon }></i>
+                                        }
+                                        { child.Label }
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </li>
+            }
+        </ul>
+    </nav>
+}

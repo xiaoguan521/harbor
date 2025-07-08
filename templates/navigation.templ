@@ -1,0 +1,44 @@
+package templates
+
+type NavItem struct {
+    URL    string
+    Label  string
+    Icon   string
+    Active bool
+}
+
+type NavProps struct {
+    IsSessionValid bool
+    AccountName    string
+    CurrentLang    string
+    NavItems       []NavItem
+}
+
+templ Navigation(props NavProps) {
+    <header class="header">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">Harbor</a>
+            <nav>
+                <ul class="nav-links">
+                    for _, item := range props.NavItems {
+                        <li>
+                            <a href={ templ.SafeURL(item.URL) } class={ templ.KV("active", item.Active) }>
+                                { item.Label }
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+            if props.IsSessionValid {
+                <div class="user-menu">
+                    <span>{ props.AccountName }</span>
+                    <a href="/logout">Logout</a>
+                </div>
+            } else {
+                <div class="user-menu">
+                    <a href="/login">Login</a>
+                </div>
+            }
+        </div>
+    </header>
+}

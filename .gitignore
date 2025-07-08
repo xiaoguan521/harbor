@@ -17,6 +17,10 @@ src/common/dao/dao.test
 *.pyc
 jobservice/test
 
+# Templ-generated files
+templates/*_templ.go
+bin/templ-server
+
 src/portal/coverage/
 src/portal/dist/
 src/portal/html-report/

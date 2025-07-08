@@ -1,0 +1,75 @@
+package templates
+
+type DashboardProps struct {
+    IsSessionValid bool
+    AccountName    string
+    CurrentLang    string
+}
+
+templ Dashboard(props DashboardProps) {
+    @Base(BaseProps{
+        Title: "Harbor",
+        Content: dashboardContent(props),
+    })
+}
+
+templ dashboardContent(props DashboardProps) {
+    @Navigation(NavProps{
+        IsSessionValid: props.IsSessionValid,
+        AccountName:    props.AccountName,
+        CurrentLang:    props.CurrentLang,
+        NavItems: []NavItem{
+            {URL: "/", Label: "Projects", Active: true},
+            {URL: "/logs", Label: "Logs", Active: false},
+            {URL: "/users", Label: "Users", Active: false},
+            {URL: "/configs", Label: "Configuration", Active: false},
+        },
+    })
+    
+    <div class="layout-container">
+        @SideNavigation(SideNavProps{
+            Items: []SideNavItem{
+                {
+                    URL:    "/",
+                    Label:  "Projects",
+                    Icon:   "library",
+                    Active: true,
+                },
+                {
+                    URL:    "/logs",
+                    Label:  "Logs",
+                    Icon:   "list",
+                    Active: false,
+                },
+                {
+                    URL:    "/users",
+                    Label:  "System Management",
+                    Icon:   "administrator",
+                    Active: false,
+                    Children: []SideNavItem{
+                        {URL: "/users", Label: "Users", Icon: "users", Active: false},
+                        {URL: "/groups", Label: "Groups", Icon: "users", Active: false},
+                        {URL: "/configs", Label: "Configuration", Icon: "cog", Active: false},
+                    },
+                },
+            },
+        })
+        
+        <main class="content-area">
+            <div class="main-content">
+                <h1>Welcome to Harbor</h1>
+                <p>This is the new templ-based UI for Harbor.</p>
+                
+                <div class="card">
+                    <h2>Recent Projects</h2>
+                    <p>Your recent projects will appear here.</p>
+                </div>
+                
+                <div class="card">
+                    <h2>System Status</h2>
+                    <p>System health and status information.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+}

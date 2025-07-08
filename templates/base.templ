@@ -1,0 +1,151 @@
+package templates
+
+type BaseProps struct {
+    Title string
+    Content templ.Component
+}
+
+templ Base(props BaseProps) {
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8" />
+        <title>{ props.Title }</title>
+        <base href="/" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" type="image/x-icon" href="favicon.ico?v=2" />
+        <style>
+            /* Basic Harbor styling */
+            body {
+                font-family: "Metropolis", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                background-color: #f5f5f5;
+            }
+            .app-loading {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                font-size: 18px;
+            }
+            .header {
+                background: #004a70;
+                color: white;
+                padding: 1rem;
+                border-bottom: 1px solid #0066cc;
+            }
+            .nav-container {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .nav-brand {
+                font-size: 1.5rem;
+                font-weight: bold;
+                text-decoration: none;
+                color: white;
+            }
+            .nav-links {
+                list-style: none;
+                display: flex;
+                gap: 2rem;
+                margin: 0;
+                padding: 0;
+            }
+            .nav-links a {
+                color: white;
+                text-decoration: none;
+                padding: 0.5rem 1rem;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+            }
+            .nav-links a:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+            .nav-links a.active {
+                background-color: #0066cc;
+            }
+            .main-content {
+                padding: 2rem;
+            }
+            .side-nav {
+                background: white;
+                width: 250px;
+                min-height: calc(100vh - 80px);
+                border-right: 1px solid #e0e0e0;
+                padding: 1rem;
+            }
+            .side-nav-items {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+            }
+            .side-nav-item {
+                margin-bottom: 0.5rem;
+            }
+            .side-nav-item a {
+                display: block;
+                padding: 0.75rem 1rem;
+                text-decoration: none;
+                color: #333;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+            }
+            .side-nav-item a:hover {
+                background-color: #f0f0f0;
+            }
+            .side-nav-item a.active {
+                background-color: #0066cc;
+                color: white;
+            }
+            .side-nav-children {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+                padding-left: 1rem;
+            }
+            .side-nav-children a {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+            .content-area {
+                flex: 1;
+                padding: 2rem;
+            }
+            .layout-container {
+                display: flex;
+            }
+            .card {
+                background: white;
+                border-radius: 8px;
+                padding: 1.5rem;
+                margin-bottom: 2rem;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .card h2 {
+                margin-top: 0;
+                color: #333;
+            }
+            .user-menu {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }
+            .user-menu a {
+                color: white;
+                text-decoration: none;
+                padding: 0.5rem 1rem;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+            }
+            .user-menu a:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+        </style>
+    </head>
+    <body>
+        @props.Content
+    </body>
+    </html>
+}
