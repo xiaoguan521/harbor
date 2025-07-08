@@ -1,0 +1,357 @@
+package templates
+
+import (
+    "time"
+    "fmt"
+)
+
+type Project struct {
+    ID          int
+    Name        string
+    Description string
+    Public      bool
+    RepoCount   int
+    CreatedAt   time.Time
+    UpdatedAt   time.Time
+}
+
+type ProjectsProps struct {
+    IsSessionValid bool
+    AccountName    string
+    CurrentLang    string
+    Projects       []Project
+    TotalCount     int
+}
+
+templ Projects(props ProjectsProps) {
+    @Base(BaseProps{
+        Title: "Harbor - Projects",
+        Content: projectsContent(props),
+    })
+}
+
+templ projectsContent(props ProjectsProps) {
+    @Navigation(NavProps{
+        IsSessionValid: props.IsSessionValid,
+        AccountName:    props.AccountName,
+        CurrentLang:    props.CurrentLang,
+        NavItems: []NavItem{
+            {URL: "/projects", Label: "Projects", Active: true},
+            {URL: "/logs", Label: "Logs", Active: false},
+            {URL: "/users", Label: "Users", Active: false},
+            {URL: "/configs", Label: "Configuration", Active: false},
+        },
+    })
+    
+    <div class="layout-container">
+        @SideNavigation(SideNavProps{
+            Items: []SideNavItem{
+                {
+                    URL:    "/projects",
+                    Label:  "Projects",
+                    Icon:   "library",
+                    Active: true,
+                },
+                {
+                    URL:    "/logs",
+                    Label:  "Logs",
+                    Icon:   "list",
+                    Active: false,
+                },
+                {
+                    URL:    "/users",
+                    Label:  "System Management",
+                    Icon:   "administrator",
+                    Active: false,
+                    Children: []SideNavItem{
+                        {URL: "/users", Label: "Users", Icon: "users", Active: false},
+                        {URL: "/groups", Label: "Groups", Icon: "users", Active: false},
+                        {URL: "/configs", Label: "Configuration", Icon: "cog", Active: false},
+                    },
+                },
+            },
+        })
+        
+        <main class="content-area">
+            <div class="projects-header">
+                <h1>Projects</h1>
+                <div class="projects-actions">
+                    <button class="btn btn-primary">New Project</button>
+                </div>
+            </div>
+            
+            <div class="projects-stats">
+                <div class="stat-card">
+                    <div class="stat-number">{ fmt.Sprintf("%d", props.TotalCount) }</div>
+                    <div class="stat-label">Total Projects</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{ fmt.Sprintf("%d", len(props.Projects)) }</div>
+                    <div class="stat-label">Visible Projects</div>
+                </div>
+            </div>
+            
+            <div class="projects-grid">
+                for _, project := range props.Projects {
+                    <div class="project-card">
+                        <div class="project-header">
+                            <h3>
+                                <a href={ templ.SafeURL("/harbor/projects/" + fmt.Sprintf("%d", project.ID)) }>
+                                    { project.Name }
+                                </a>
+                            </h3>
+                            <div class="project-visibility">
+                                if project.Public {
+                                    <span class="badge badge-public">Public</span>
+                                } else {
+                                    <span class="badge badge-private">Private</span>
+                                }
+                            </div>
+                        </div>
+                        
+                        <div class="project-description">
+                            if project.Description != "" {
+                                <p>{ project.Description }</p>
+                            } else {
+                                <p class="no-description">No description</p>
+                            }
+                        </div>
+                        
+                        <div class="project-stats">
+                            <div class="stat">
+                                <span class="stat-label">Repositories:</span>
+                                <span class="stat-value">{ fmt.Sprintf("%d", project.RepoCount) }</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Created:</span>
+                                <span class="stat-value">{ project.CreatedAt.Format("2006-01-02") }</span>
+                            </div>
+                        </div>
+                        
+                        <div class="project-actions">
+                            <a href={ templ.SafeURL("/harbor/projects/" + fmt.Sprintf("%d", project.ID)) } class="btn btn-sm">
+                                View
+                            </a>
+                            <button class="btn btn-sm btn-outline">Settings</button>
+                        </div>
+                    </div>
+                }
+                
+                if len(props.Projects) == 0 {
+                    <div class="empty-state">
+                        <div class="empty-icon">📦</div>
+                        <h3>No projects found</h3>
+                        <p>Create your first project to get started with Harbor.</p>
+                        <button class="btn btn-primary">Create Project</button>
+                    </div>
+                }
+            </div>
+        </main>
+    </div>
+    
+    <style>
+        .projects-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        
+        .projects-header h1 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .projects-actions {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .btn-outline {
+            border: 1px solid #ddd;
+            background: white;
+            color: #333;
+        }
+        
+        .btn-outline:hover {
+            background: #f0f0f0;
+        }
+        
+        .projects-stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            min-width: 150px;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #0066cc;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.875rem;
+        }
+        
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+        
+        .project-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.2s;
+        }
+        
+        .project-card:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+        
+        .project-header h3 {
+            margin: 0;
+            flex: 1;
+        }
+        
+        .project-header a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        
+        .project-header a:hover {
+            text-decoration: underline;
+        }
+        
+        .project-visibility {
+            margin-left: 1rem;
+        }
+        
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .badge-public {
+            background: #e8f5e8;
+            color: #2d7d32;
+        }
+        
+        .badge-private {
+            background: #ffeaa7;
+            color: #d68910;
+        }
+        
+        .project-description {
+            margin-bottom: 1rem;
+            min-height: 3rem;
+        }
+        
+        .project-description p {
+            margin: 0;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        .no-description {
+            font-style: italic;
+            color: #999;
+        }
+        
+        .project-stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: #999;
+            text-transform: uppercase;
+        }
+        
+        .stat-value {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .project-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #666;
+        }
+        
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        .empty-state h3 {
+            margin: 0 0 1rem 0;
+            color: #333;
+        }
+        
+        .empty-state p {
+            margin: 0 0 2rem 0;
+            color: #666;
+        }
+    </style>
+}
