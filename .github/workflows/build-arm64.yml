@@ -20,49 +20,33 @@ on:
       push_images:
         description: 'Push images to registry'
         required: false
-        default: 'false'
+        # 修正: 使用布尔值 false 而不是字符串 'false'
+        default: false
         type: boolean
 
 jobs:
   build-arm64-package:
-    # 核心改动 #1: 使用原生 ARM64 运行器，这将极大提升性能和可靠性
     runs-on: ubuntu-22.04-arm
-
-    # 设置默认的 shell 和工作目录，避免在多个步骤中重复 'cd'
-    defaults:
-      run:
-        shell: bash
-        working-directory: src/github.com/goharbor/harbor
 
     steps:
       - name: Checkout Harbor Source Code
         uses: actions/checkout@v4
-        # 将代码直接检出到预期的 GOPATH 结构中
         with:
           path: src/github.com/goharbor/harbor
 
-      # Jitterbit action 需要在项目根目录运行
       - name: Get changed files
         uses: jitterbit/get-changed-files@v1
         id: changed-files
         with:
           format: 'space-delimited'
           token: ${{ secrets.GITHUB_TOKEN }}
-        defaults:
-          run:
-            working-directory: ${{ github.workspace }} # 临时重置工作目录
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: 1.23.2
 
-      # 核心改动 #2: 移除 QEMU，因为我们已经在原生 ARM64 环境中
-      # - name: Set up QEMU
-      #   uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
-        # 即使在原生环境，Buildx 也能提供更现代、更高效的构建后端
         uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
@@ -70,7 +54,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY_ID }}
           aws-region: us-east-1
 
       - name: Login to Docker Hub
@@ -79,18 +63,15 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      
-      # Harbor 的 Makefile 可能依赖 GOPATH
+
       - name: Setup Go environment
         run: |
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
-        defaults:
-          run:
-            working-directory: ${{ github.workspace }} # 重置工作目录
 
       - name: Determine if Base Image needs to be rebuilt
         id: build_base_check
+        # 这个步骤不需要指定工作目录
         run: |
           if [[ "${{ contains(steps.changed-files.outputs.all, 'make/photon/Dockerfile.base') }}" == "true" || "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "build_base=true" >> $GITHUB_OUTPUT
@@ -100,6 +81,8 @@ jobs:
 
       - name: Build ARM64 Package
         id: build_package
+        # 修正: 明确指定此步骤的工作目录
+        working-directory: src/github.com/goharbor/harbor
         run: |
           set -ex
           
@@ -116,15 +99,11 @@ jobs:
             TARGET_BUCKET="harbor-releases/$TARGET_BRANCH"
           fi
 
-          if [[ $TARGET_BRANCH == "release-"* ]]; then
-            BASE_TAG=$RELEASE_VERSION
-          else
+          BASE_TAG=${TARGET_BRANCH#release-}
+          if [[ $TARGET_BRANCH == "main" ]]; then
             BASE_TAG=dev
           fi
 
-          # 核心改动 #3: 简化和集中化 make 参数
-          # 在原生 ARM64 环境下，GOARCH, GOOS, BUILDPLATFORM 等参数会自动被正确识别。
-          # 我们显式传递它们是为了确保 Makefile 行为一致，防止其内部有硬编码。
           MAKE_FLAGS="GOBUILDTAGS=include_oss \
             BASEIMAGETAG=${BASE_TAG} \
             VERSIONTAG=${ASSETS_VERSION} \
@@ -134,21 +113,15 @@ jobs:
             GOARCH=arm64 \
             BUILDPLATFORM=linux/arm64"
           
-          # 如果需要构建基础镜像，添加额外参数
           if [[ "${{ steps.build_base_check.outputs.build_base }}" == "true" ]]; then
             MAKE_FLAGS+=" BUILD_BASE=true PUSHBASEIMAGE=true REGISTRYUSER=${{ secrets.DOCKER_HUB_USERNAME }}"
-            # 注意：不建议直接在日志中传递密码，Harbor 的 Makefile 可能需要改进
-            # 这里我们假设它通过 docker login 凭证来推送
           fi
 
           # --- 执行构建 ---
-          echo "Building offline package with flags: $MAKE_FLAGS"
           sudo make package_offline $MAKE_FLAGS
-
-          echo "Building online package with flags: $MAKE_FLAGS"
           sudo make package_online $MAKE_FLAGS
 
-          # --- 产出物处理 ---
+          # --- 产出物处理 (现在我们在正确的目录里) ---
           OFFLINE_BUNDLE=$(ls harbor-offline-installer-*.tgz)
           ONLINE_BUNDLE=$(ls harbor-online-installer-*.tgz)
           
@@ -159,15 +132,15 @@ jobs:
 
       - name: Upload ARM64 packages to S3
         if: github.event_name == 'push' || github.event.inputs.push_images == 'true'
+        # 修正: 明确指定此步骤的工作目录
+        working-directory: src/github.com/goharbor/harbor
         run: |
           source tests/ci/build_util.sh
           TARGET_BUCKET="${{ steps.build_package.outputs.target_bucket }}"
           
-          # 复制并上传版本化包
           uploader "${{ steps.build_package.outputs.offline_bundle_path }}" "$TARGET_BUCKET"
           uploader "${{ steps.build_package.outputs.online_bundle_path }}" "$TARGET_BUCKET"
           
-          # 复制并上传 latest 包
           cp "${{ steps.build_package.outputs.offline_bundle_path }}" harbor-offline-installer-latest-arm64.tgz
           cp "${{ steps.build_package.outputs.online_bundle_path }}" harbor-online-installer-latest-arm64.tgz
           uploader harbor-offline-installer-latest-arm64.tgz "$TARGET_BUCKET"
@@ -184,14 +157,14 @@ jobs:
 
       - name: Push ARM64 Docker Images
         if: github.event_name == 'push' || github.event.inputs.push_images == 'true'
+        # 修正: 明确指定此步骤的工作目录
+        working-directory: src/github.com/goharbor/harbor
         run: |
           ASSETS_VERSION="${{ steps.build_package.outputs.assets_version }}"
           
-          # 解压并加载镜像 (tar.gz 文件包含所有镜像层)
           tar -xvf "${{ steps.build_package.outputs.offline_bundle_path }}"
           docker load -i harbor/harbor.${ASSETS_VERSION}.tar
           
-          # 查找所有 goharbor/* 的镜像并推送
           docker images "goharbor/*:${ASSETS_VERSION}" --format "{{.Repository}}:{{.Tag}}" | while read -r image; do
             echo "Pushing ${image}"
             docker push "${image}"
