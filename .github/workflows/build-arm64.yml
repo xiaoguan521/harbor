@@ -33,13 +33,6 @@ jobs:
         with:
           path: src/github.com/goharbor/harbor
 
-      - name: Get changed files
-        uses: jitterbit/get-changed-files@v1
-        id: changed-files
-        with:
-          format: 'space-delimited'
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -48,11 +41,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # --- (已删除) Configure AWS credentials 步骤 ---
-      # 这一步导致了错误，并且我们不再需要它
-
       - name: Login to Docker Hub
-        if: github.event.inputs.push_images == 'true' # 注意: 这里只在手动触发并选择推送时才登录
+        if: github.event.inputs.push_images == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -62,15 +52,6 @@ jobs:
         run: |
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
-
-      - name: Determine if Base Image needs to be rebuilt
-        id: build_base_check
-        run: |
-          if [[ "${{ contains(steps.changed-files.outputs.all, 'make/photon/Dockerfile.base') }}" == "true" || "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "build_base=true" >> $GITHUB_OUTPUT
-          else
-            echo "build_base=false" >> $GITHUB_OUTPUT
-          fi
 
       - name: Build ARM64 Package
         id: build_package
@@ -94,7 +75,10 @@ jobs:
             BASE_TAG=dev
           fi
 
-          MAKE_FLAGS="GOBUILDTAGS=include_oss \
+          # 核心修正: 强制构建基础镜像 (BUILD_BASE=true) 以解决 "exec format error"。
+          # 这会确保所有依赖的基础镜像都在 ARM64 环境下从头构建。
+          MAKE_FLAGS="BUILD_BASE=true \
+            GOBUILDTAGS=include_oss \
             BASEIMAGETAG=${BASE_TAG} \
             VERSIONTAG=${ASSETS_VERSION} \
             PKGVERSIONTAG=${PACKAGE_VERSION} \
@@ -103,8 +87,9 @@ jobs:
             GOARCH=arm64 \
             BUILDPLATFORM=linux/arm64"
           
-          if [[ "${{ steps.build_base_check.outputs.build_base }}" == "true" && "${{ github.event.inputs.push_images }}" == "true" ]]; then
-            MAKE_FLAGS+=" BUILD_BASE=true PUSHBASEIMAGE=true REGISTRYUSER=${{ secrets.DOCKER_HUB_USERNAME }}"
+          # 如果手动触发时选择推送，则也推送构建的基础镜像
+          if [[ "${{ github.event.inputs.push_images }}" == "true" ]]; then
+            MAKE_FLAGS+=" PUSHBASEIMAGE=true REGISTRYUSER=${{ secrets.DOCKER_HUB_USERNAME }}"
           fi
 
           # --- 执行构建 ---
@@ -118,9 +103,6 @@ jobs:
           echo "offline_bundle_path=$PWD/$OFFLINE_BUNDLE" >> $GITHUB_OUTPUT
           echo "online_bundle_path=$PWD/$ONLINE_BUNDLE" >> $GITHUB_OUTPUT
           echo "assets_version=${ASSETS_VERSION}" >> $GITHUB_OUTPUT
-
-      # --- (已删除) Upload ARM64 packages to S3 步骤 ---
-      # 我们使用下面的 upload-artifact 步骤来代替它
 
       - name: Upload build artifacts to GitHub
         uses: actions/upload-artifact@v4
@@ -136,12 +118,13 @@ jobs:
         working-directory: src/github.com/goharbor/harbor
         run: |
           ASSETS_VERSION="${{ steps.build_package.outputs.assets_version }}"
-          
-          # 注意：这里的 offline_bundle_path 是一个绝对路径，需要处理
           OFFLINE_BUNDLE_PATH="${{ steps.build_package.outputs.offline_bundle_path }}"
+          
+          # 解压安装包并加载所有 ARM64 镜像
           tar -xvf "${OFFLINE_BUNDLE_PATH}"
           docker load -i harbor/harbor.${ASSETS_VERSION}.tar
           
+          # 查找所有 goharbor/* 的镜像并推送到 Docker Hub
           docker images "goharbor/*:${ASSETS_VERSION}" --format "{{.Repository}}:{{.Tag}}" | while read -r image; do
             echo "Pushing ${image}"
             docker push "${image}"
