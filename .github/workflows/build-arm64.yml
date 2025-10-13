@@ -20,7 +20,6 @@ on:
       push_images:
         description: 'Push images to registry'
         required: false
-        # 修正: 使用布尔值 false 而不是字符串 'false'
         default: false
         type: boolean
 
@@ -49,21 +48,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Configure AWS credentials
-        if: github.event_name == 'push' || github.event.inputs.push_images == 'true'
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY_ID }}
-          aws-region: us-east-1
+      # --- (已删除) Configure AWS credentials 步骤 ---
+      # 这一步导致了错误，并且我们不再需要它
 
       - name: Login to Docker Hub
-        if: github.event_name == 'push' || github.event.inputs.push_images == 'true'
+        if: github.event.inputs.push_images == 'true' # 注意: 这里只在手动触发并选择推送时才登录
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-
+      
       - name: Setup Go environment
         run: |
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
@@ -71,7 +65,6 @@ jobs:
 
       - name: Determine if Base Image needs to be rebuilt
         id: build_base_check
-        # 这个步骤不需要指定工作目录
         run: |
           if [[ "${{ contains(steps.changed-files.outputs.all, 'make/photon/Dockerfile.base') }}" == "true" || "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "build_base=true" >> $GITHUB_OUTPUT
@@ -81,7 +74,6 @@ jobs:
 
       - name: Build ARM64 Package
         id: build_package
-        # 修正: 明确指定此步骤的工作目录
         working-directory: src/github.com/goharbor/harbor
         run: |
           set -ex
@@ -93,10 +85,8 @@ jobs:
 
           if [[ $TARGET_BRANCH == "main" ]]; then
             ASSETS_VERSION=$PACKAGE_VERSION
-            TARGET_BUCKET="harbor-builds"
           else
             ASSETS_VERSION="${RELEASE_VERSION}-arm64"
-            TARGET_BUCKET="harbor-releases/$TARGET_BRANCH"
           fi
 
           BASE_TAG=${TARGET_BRANCH#release-}
@@ -113,7 +103,7 @@ jobs:
             GOARCH=arm64 \
             BUILDPLATFORM=linux/arm64"
           
-          if [[ "${{ steps.build_base_check.outputs.build_base }}" == "true" ]]; then
+          if [[ "${{ steps.build_base_check.outputs.build_base }}" == "true" && "${{ github.event.inputs.push_images }}" == "true" ]]; then
             MAKE_FLAGS+=" BUILD_BASE=true PUSHBASEIMAGE=true REGISTRYUSER=${{ secrets.DOCKER_HUB_USERNAME }}"
           fi
 
@@ -121,32 +111,18 @@ jobs:
           sudo make package_offline $MAKE_FLAGS
           sudo make package_online $MAKE_FLAGS
 
-          # --- 产出物处理 (现在我们在正确的目录里) ---
+          # --- 产出物处理 ---
           OFFLINE_BUNDLE=$(ls harbor-offline-installer-*.tgz)
           ONLINE_BUNDLE=$(ls harbor-online-installer-*.tgz)
           
           echo "offline_bundle_path=$PWD/$OFFLINE_BUNDLE" >> $GITHUB_OUTPUT
           echo "online_bundle_path=$PWD/$ONLINE_BUNDLE" >> $GITHUB_OUTPUT
           echo "assets_version=${ASSETS_VERSION}" >> $GITHUB_OUTPUT
-          echo "target_bucket=${TARGET_BUCKET}" >> $GITHUB_OUTPUT
 
-      - name: Upload ARM64 packages to S3
-        if: github.event_name == 'push' || github.event.inputs.push_images == 'true'
-        # 修正: 明确指定此步骤的工作目录
-        working-directory: src/github.com/goharbor/harbor
-        run: |
-          source tests/ci/build_util.sh
-          TARGET_BUCKET="${{ steps.build_package.outputs.target_bucket }}"
-          
-          uploader "${{ steps.build_package.outputs.offline_bundle_path }}" "$TARGET_BUCKET"
-          uploader "${{ steps.build_package.outputs.online_bundle_path }}" "$TARGET_BUCKET"
-          
-          cp "${{ steps.build_package.outputs.offline_bundle_path }}" harbor-offline-installer-latest-arm64.tgz
-          cp "${{ steps.build_package.outputs.online_bundle_path }}" harbor-online-installer-latest-arm64.tgz
-          uploader harbor-offline-installer-latest-arm64.tgz "$TARGET_BUCKET"
-          uploader harbor-online-installer-latest-arm64.tgz "$TARGET_BUCKET"
-      
-      - name: Upload build artifacts
+      # --- (已删除) Upload ARM64 packages to S3 步骤 ---
+      # 我们使用下面的 upload-artifact 步骤来代替它
+
+      - name: Upload build artifacts to GitHub
         uses: actions/upload-artifact@v4
         with:
           name: harbor-arm64-packages
@@ -156,13 +132,14 @@ jobs:
           retention-days: 7
 
       - name: Push ARM64 Docker Images
-        if: github.event_name == 'push' || github.event.inputs.push_images == 'true'
-        # 修正: 明确指定此步骤的工作目录
+        if: github.event.inputs.push_images == 'true'
         working-directory: src/github.com/goharbor/harbor
         run: |
           ASSETS_VERSION="${{ steps.build_package.outputs.assets_version }}"
           
-          tar -xvf "${{ steps.build_package.outputs.offline_bundle_path }}"
+          # 注意：这里的 offline_bundle_path 是一个绝对路径，需要处理
+          OFFLINE_BUNDLE_PATH="${{ steps.build_package.outputs.offline_bundle_path }}"
+          tar -xvf "${OFFLINE_BUNDLE_PATH}"
           docker load -i harbor/harbor.${ASSETS_VERSION}.tar
           
           docker images "goharbor/*:${ASSETS_VERSION}" --format "{{.Repository}}:{{.Tag}}" | while read -r image; do
