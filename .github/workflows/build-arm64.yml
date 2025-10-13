@@ -53,34 +53,33 @@ jobs:
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      # --- 核心修正：全局修复所有 Dockerfile ---
+      # --- 核心修正：智能、多阶段的 Dockerfile 修复 ---
       - name: Find and Patch all Dockerfiles for ARM64
         working-directory: src/github.com/goharbor/harbor
         run: |
           set -ex
-          echo "Searching for and patching all Dockerfiles using problematic base images..."
+          echo ">>> Stage 1: Globally patching all Dockerfiles to use a generic ARM64 base..."
+          find ./make -name "Dockerfile" -exec sed -i 's|FROM ${harbor_base_namespace}/.*-base:${harbor_base_image_version}|FROM photon:4.0|g' {} +
 
-          # 第 1 步: 全局替换
-          # 查找 make 目录下所有 Dockerfile，用 sed 命令将所有 "xxx-base" 镜像替换为 photon:4.0
-          find ./make -name "Dockerfile" | while read -r dockerfile; do
-            if grep -q "FROM \${harbor_base_namespace}/.*-base:\${harbor_base_image_version}" "$dockerfile"; then
-              echo "Patching ${dockerfile} to use ARM64 compatible base..."
-              sed -i 's|FROM ${harbor_base_namespace}/.*-base:${harbor_base_image_version}|FROM photon:4.0|g' "$dockerfile"
-              echo "--- Patched content of ${dockerfile}: ---"
-              cat "$dockerfile"
-              echo "------------------------------------"
-            fi
-          done
-
-          # 第 2 步: 针对 prepare 组件的特殊处理
-          # 为 prepare 的 Dockerfile 添加安装 pipenv 的指令
+          echo "\n>>> Stage 2: Applying specific, more accurate patches for individual components..."
+          DB_DOCKERFILE="make/photon/db/Dockerfile"
           PREPARE_DOCKERFILE="make/photon/prepare/Dockerfile"
-          echo "Applying specific patch to ${PREPARE_DOCKERFILE} to install dependencies..."
+
+          # 针对 DB 组件: 使用一个真正的、多架构的 postgres 镜像。这会自带 'postgres' 用户。
+          echo "Patching ${DB_DOCKERFILE} to use a proper postgres base image..."
+          sed -i 's|FROM photon:4.0|FROM postgres:14-alpine|g' "${DB_DOCKERFILE}"
+
+          # 针对 Prepare 组件: 为 photon 镜像添加缺失的 pipenv 依赖。
+          echo "Patching ${PREPARE_DOCKERFILE} to install dependencies..."
+          # 使用 awk 在 "COPY ... Pipfile.lock" 之前插入我们的安装命令
           awk '/COPY make\/photon\/prepare\/Pipfile.lock/ {
             print "RUN tdnf install -y python3 python3-pip && pip3 install pipenv"
           } 1' "${PREPARE_DOCKERFILE}" > "${PREPARE_DOCKERFILE}.tmp" && mv "${PREPARE_DOCKERFILE}.tmp" "${PREPARE_DOCKERFILE}"
-          
-          echo "--- Final content of ${PREPARE_DOCKERFILE}: ---"
+
+          echo "\n--- Final content of patched files: ---"
+          echo "--- ${DB_DOCKERFILE} ---"
+          cat "${DB_DOCKERFILE}"
+          echo "--- ${PREPARE_DOCKERFILE} ---"
           cat "${PREPARE_DOCKERFILE}"
           echo "------------------------------------"
 
@@ -105,7 +104,6 @@ jobs:
             BASE_TAG=dev
           fi
 
-          # 因为我们已经修复了所有 Dockerfile，现在可以自信地使用 BUILD_BASE=true
           MAKE_FLAGS="BUILD_BASE=true \
             GOBUILDTAGS=include_oss \
             BASEIMAGETAG=${BASE_TAG} \
