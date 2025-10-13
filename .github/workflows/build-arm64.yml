@@ -45,13 +45,31 @@ jobs:
         if: github.event.inputs.push_images == 'true'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          username: ${{ secrets.DOCK_HUB_USERNAME }}
+          password: ${{ secrets.DOCK_HUB_PASSWORD }}
       
       - name: Setup Go environment
         run: |
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
+
+      # --- 核心修正：直接修改 Dockerfile ---
+      - name: Patch Dockerfiles for ARM64
+        working-directory: src/github.com/goharbor/harbor
+        run: |
+          set -ex
+          # This is the file that causes the error.
+          PREPARE_DOCKERFILE="make/photon/prepare/Dockerfile"
+
+          # Use the 'sed' command to find the problematic FROM line and replace it.
+          # We are replacing the amd64-only base image with 'photon:4.0',
+          # which is a multi-architecture image and will work on arm64.
+          echo "Patching ${PREPARE_DOCKERFILE} to use a compatible ARM64 base image..."
+          sed -i 's|FROM ${harbor_base_namespace}/harbor-prepare-base:${harbor_base_image_version}|FROM photon:4.0|g' "${PREPARE_DOCKERFILE}"
+
+          echo "--- Patched Dockerfile content: ---"
+          cat "${PREPARE_DOCKERFILE}"
+          echo "------------------------------------"
 
       - name: Build ARM64 Package
         id: build_package
@@ -59,7 +77,7 @@ jobs:
         run: |
           set -ex
           
-          # --- 准备通用构建参数 ---
+          # --- 准备构建参数 ---
           TARGET_BRANCH="$(echo ${GITHUB_REF#refs/heads/})"
           RELEASE_VERSION=$(cat ./VERSION)
           PACKAGE_VERSION="${RELEASE_VERSION}-build.${GITHUB_RUN_NUMBER}-arm64"
@@ -75,8 +93,10 @@ jobs:
             BASE_TAG=dev
           fi
 
-          # 通用的 Make 参数
-          MAKE_FLAGS="GOBUILDTAGS=include_oss \
+          # 因为我们已经修复了 Dockerfile，现在我们可以自信地使用 BUILD_BASE=true
+          # 来确保所有层都在新的、正确的 ARM64 基础上构建。
+          MAKE_FLAGS="BUILD_BASE=true \
+            GOBUILDTAGS=include_oss \
             BASEIMAGETAG=${BASE_TAG} \
             VERSIONTAG=${ASSETS_VERSION} \
             PKGVERSIONTAG=${PACKAGE_VERSION} \
@@ -84,25 +104,14 @@ jobs:
             EXPORTERFLAG=true \
             GOARCH=arm64 \
             BUILDPLATFORM=linux/arm64"
-
-          # --- 核心修正：分两步执行 ---
-
-          # 第 1 步: 强制只构建所有基础镜像。
-          # Harbor Makefile 通常有一个 'build-base' 或类似的 target。
-          # 我们使用 'build' target 并附带 'BUILD_BASE=true' 和一个假的 'COMPILETAG'
-          # 来确保只执行基础镜像的构建，而不进入完整编译阶段。
-          echo "--- Step 1: Building base images explicitly for ARM64 ---"
-          sudo make build BUILD_BASE=true COMPILETAG=base_only_build ${MAKE_FLAGS}
-
-          # 第 2 步: 构建最终的安装包，并明确告知不要再构建基础镜像。
-          # 这会强制 make 使用我们在上一步中已经在本地构建好的 ARM64 基础镜像。
-          echo "--- Step 2: Building final packages using local ARM64 base images ---"
+          
           if [[ "${{ github.event.inputs.push_images }}" == "true" ]]; then
             MAKE_FLAGS+=" PUSHBASEIMAGE=true REGISTRYUSER=${{ secrets.DOCKER_HUB_USERNAME }}"
           fi
-          
-          sudo make package_offline BUILD_BASE=false ${MAKE_FLAGS}
-          sudo make package_online BUILD_BASE=false ${MAKE_FLAGS}
+
+          # --- 执行构建 ---
+          sudo make package_offline $MAKE_FLAGS
+          sudo make package_online $MAKE_FLAGS
 
           # --- 产出物处理 ---
           OFFLINE_BUNDLE=$(ls harbor-offline-installer-*.tgz)
@@ -112,7 +121,6 @@ jobs:
           echo "online_bundle_path=$PWD/$ONLINE_BUNDLE" >> $GITHUB_OUTPUT
           echo "assets_version=${ASSETS_VERSION}" >> $GITHUB_OUTPUT
 
-      # ... (后续的 upload 和 push 步骤保持不变) ...
       - name: Upload build artifacts to GitHub
         uses: actions/upload-artifact@v4
         with:
