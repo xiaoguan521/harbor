@@ -53,24 +53,34 @@ jobs:
           echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
           echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
-      - name: Patch Dockerfile to build on ARM64
+      # --- 核心修正：全局修复所有 Dockerfile ---
+      - name: Find and Patch all Dockerfiles for ARM64
         working-directory: src/github.com/goharbor/harbor
         run: |
           set -ex
+          echo "Searching for and patching all Dockerfiles using problematic base images..."
+
+          # 第 1 步: 全局替换
+          # 查找 make 目录下所有 Dockerfile，用 sed 命令将所有 "xxx-base" 镜像替换为 photon:4.0
+          find ./make -name "Dockerfile" | while read -r dockerfile; do
+            if grep -q "FROM \${harbor_base_namespace}/.*-base:\${harbor_base_image_version}" "$dockerfile"; then
+              echo "Patching ${dockerfile} to use ARM64 compatible base..."
+              sed -i 's|FROM ${harbor_base_namespace}/.*-base:${harbor_base_image_version}|FROM photon:4.0|g' "$dockerfile"
+              echo "--- Patched content of ${dockerfile}: ---"
+              cat "$dockerfile"
+              echo "------------------------------------"
+            fi
+          done
+
+          # 第 2 步: 针对 prepare 组件的特殊处理
+          # 为 prepare 的 Dockerfile 添加安装 pipenv 的指令
           PREPARE_DOCKERFILE="make/photon/prepare/Dockerfile"
-
-          echo "Patching ${PREPARE_DOCKERFILE} for ARM64 build..."
-
-          # 第1步: 替换掉 amd64-only 的基础镜像
-          sed -i 's|FROM ${harbor_base_namespace}/harbor-prepare-base:${harbor_base_image_version}|FROM photon:4.0|g' "${PREPARE_DOCKERFILE}"
-          
-          # 第2步: 在需要 pipenv 之前，插入安装指令
-          # 使用 awk 在 "COPY make/photon/prepare/Pipfile.lock" 这一行之前插入我们需要的安装命令
+          echo "Applying specific patch to ${PREPARE_DOCKERFILE} to install dependencies..."
           awk '/COPY make\/photon\/prepare\/Pipfile.lock/ {
             print "RUN tdnf install -y python3 python3-pip && pip3 install pipenv"
           } 1' "${PREPARE_DOCKERFILE}" > "${PREPARE_DOCKERFILE}.tmp" && mv "${PREPARE_DOCKERFILE}.tmp" "${PREPARE_DOCKERFILE}"
-
-          echo "--- Patched Dockerfile content: ---"
+          
+          echo "--- Final content of ${PREPARE_DOCKERFILE}: ---"
           cat "${PREPARE_DOCKERFILE}"
           echo "------------------------------------"
 
@@ -95,6 +105,7 @@ jobs:
             BASE_TAG=dev
           fi
 
+          # 因为我们已经修复了所有 Dockerfile，现在可以自信地使用 BUILD_BASE=true
           MAKE_FLAGS="BUILD_BASE=true \
             GOBUILDTAGS=include_oss \
             BASEIMAGETAG=${BASE_TAG} \
