@@ -88,7 +88,6 @@ jobs:
 
           echo "\n>>> Stage 3: Globally creating 'harbor' user and group where needed..."
           for dockerfile in $TARGET_FILES; do
-            # 对所有使用 photon:4.0 的 Dockerfile 执行此操作
             if grep -q "FROM photon:4.0" "$dockerfile"; then
               echo "Adding user/group creation tools and 'harbor' user/group to ${dockerfile}..."
               awk '/FROM photon:4.0/ {
@@ -99,8 +98,6 @@ jobs:
             fi
           done
 
-          echo "\n--- Final review of patched files ---"
-
       - name: Build ARM64 Package
         id: build_package
         working-directory: src/github.com/goharbor/harbor
@@ -109,24 +106,21 @@ jobs:
           
           TARGET_BRANCH="$(echo ${GITHUB_REF#refs/heads/})"
           RELEASE_VERSION=$(cat ./VERSION)
-          PACKAGE_VERSION="${RELEASE_VERSION}-build.${GITHUB_RUN_NUMBER}-arm64"
+          # 这是最终安装包文件名使用的版本号
+          PACKAGE_FILENAME_VERSION="${RELEASE_VERSION}-build.${GITHUB_RUN_NUMBER}-arm64"
 
-          if [[ $TARGET_BRANCH == "main" ]]; then
-            ASSETS_VERSION=$PACKAGE_VERSION
-          else
-            ASSETS_VERSION="${RELEASE_VERSION}-arm64"
-          fi
-
+          # 这是所有 Docker 镜像在构建和打包时统一使用的内部标签
           BASE_TAG=${TARGET_BRANCH#release-}
           if [[ $TARGET_BRANCH == "main" ]]; then
             BASE_TAG=dev
           fi
 
+          # 终极修正: 统一所有内部版本标签，确保 Makefile 能找到所有镜像
           MAKE_FLAGS="BUILD_BASE=true \
             GOBUILDTAGS=include_oss \
             BASEIMAGETAG=${BASE_TAG} \
-            VERSIONTAG=${ASSETS_VERSION} \
-            PKGVERSIONTAG=${PACKAGE_VERSION} \
+            VERSIONTAG=${BASE_TAG} \
+            PKGVERSIONTAG=${BASE_TAG} \
             TRIVYFLAG=true \
             EXPORTERFLAG=true \
             GOARCH=arm64 \
@@ -138,13 +132,18 @@ jobs:
 
           sudo make package_offline $MAKE_FLAGS
           sudo make package_online $MAKE_FLAGS
+          
+          # 重命名最终产物，使其包含详细的版本信息
+          mv harbor-offline-installer-${BASE_TAG}.tgz harbor-offline-installer-${PACKAGE_FILENAME_VERSION}.tgz
+          mv harbor-online-installer-${BASE_TAG}.tgz harbor-online-installer-${PACKAGE_FILENAME_VERSION}.tgz
 
-          OFFLINE_BUNDLE=$(ls harbor-offline-installer-*.tgz)
-          ONLINE_BUNDLE=$(ls harbor-online-installer-*.tgz)
+          OFFLINE_BUNDLE="harbor-offline-installer-${PACKAGE_FILENAME_VERSION}.tgz"
+          ONLINE_BUNDLE="harbor-online-installer-${PACKAGE_FILENAME_VERSION}.tgz"
           
           echo "offline_bundle_path=$PWD/$OFFLINE_BUNDLE" >> $GITHUB_OUTPUT
           echo "online_bundle_path=$PWD/$ONLINE_BUNDLE" >> $GITHUB_OUTPUT
-          echo "assets_version=${ASSETS_VERSION}" >> $GITHUB_OUTPUT
+          # 资产版本也使用简单标签，以便推送
+          echo "assets_version=${BASE_TAG}" >> $GITHUB_OUTPUT
 
       - name: Upload build artifacts to GitHub
         uses: actions/upload-artifact@v4
