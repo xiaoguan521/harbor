@@ -70,6 +70,7 @@ jobs:
           DB_DOCKERFILE="make/photon/db/Dockerfile"
           PREPARE_DOCKERFILE="make/photon/prepare/Dockerfile"
           LOG_DOCKERFILE="make/photon/log/Dockerfile"
+          REGISTRY_DOCKERFILE="make/photon/registry/Dockerfile"
 
           echo "Applying 'postgres' patch to ${DB_DOCKERFILE}..."
           sed -i 's|FROM photon:4.0|FROM postgres:14-alpine|g' "${DB_DOCKERFILE}"
@@ -79,9 +80,14 @@ jobs:
             print "RUN tdnf -y install python3 python3-pip && pip3 install pipenv"
           } 1' "${PREPARE_DOCKERFILE}" > "${PREPARE_DOCKERFILE}.tmp" && mv "${PREPARE_DOCKERFILE}.tmp" "${PREPARE_DOCKERFILE}"
           
-          # 终极修正: 使用 sed 的 'c' 命令替换整行，避免命令混乱
           echo "Applying 'logrotate' patch to ${LOG_DOCKERFILE}..."
           sed -i '/\/etc\/cron.daily\/logrotate/c\RUN tdnf install -y logrotate && rm -f /etc/cron.daily/logrotate' "${LOG_DOCKERFILE}"
+
+          # 终极修正: 为 registry 组件的 Dockerfile 预先创建 /home/harbor 目录
+          echo "Applying 'mkdir' patch to ${REGISTRY_DOCKERFILE}..."
+          awk '/COPY .\/make\/photon\/registry\/entrypoint.sh/ {
+            print "RUN mkdir -p /home/harbor"
+          } 1' "${REGISTRY_DOCKERFILE}" > "${REGISTRY_DOCKERFILE}.tmp" && mv "${REGISTRY_DOCKERFILE}.tmp" "${REGISTRY_DOCKERFILE}"
 
           echo "\n>>> Stage 3: Globally creating 'harbor' user and group where needed..."
           for dockerfile in $TARGET_FILES; do
@@ -95,9 +101,7 @@ jobs:
             fi
           done
 
-          echo "\n--- Final review of patched files: ---"
-          cat "${DB_DOCKERFILE}" "${PREPARE_DOCKERFILE}" "${LOG_DOCKERFILE}"
-          echo "------------------------------------"
+          echo "\n--- Final review of patched files ---"
 
       - name: Build ARM64 Package
         id: build_package
