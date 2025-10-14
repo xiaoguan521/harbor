@@ -79,8 +79,9 @@ jobs:
             print "RUN tdnf -y install python3 python3-pip && pip3 install pipenv"
           } 1' "${PREPARE_DOCKERFILE}" > "${PREPARE_DOCKERFILE}.tmp" && mv "${PREPARE_DOCKERFILE}.tmp" "${PREPARE_DOCKERFILE}"
 
-          echo "Applying 'rm -f' patch to ${LOG_DOCKERFILE}..."
-          sed -i 's|RUN rm /etc/cron.daily/logrotate|RUN rm -f /etc/cron.daily/logrotate|g' "${LOG_DOCKERFILE}"
+          echo "Applying 'logrotate' patch to ${LOG_DOCKERFILE}..."
+          # 终极修正: 将 'rm' 命令替换为先安装 logrotate 再执行 rm -f
+          sed -i 's|RUN rm /etc/cron.daily/logrotate|RUN tdnf install -y logrotate && rm -f /etc/cron.daily/logrotate|g' "${LOG_DOCKERFILE}"
 
           echo "\n>>> Stage 3: Globally creating 'harbor' user and group where needed..."
           for dockerfile in $TARGET_FILES; do
