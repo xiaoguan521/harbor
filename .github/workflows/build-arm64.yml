@@ -108,34 +108,36 @@ jobs:
           RELEASE_VERSION=$(cat ./VERSION)
           PACKAGE_FILENAME_VERSION="${RELEASE_VERSION}-build.${GITHUB_RUN_NUMBER}-arm64"
 
-          # 步骤 2: 构造 make 命令参数, 使用官方版本号进行构建
-          MAKE_FLAGS="BUILD_BASE=true \
-            GOBUILDTAGS=include_oss \
-            BASEIMAGETAG=${RELEASE_VERSION} \
+          # 步骤 2: 构造 make 命令参数
+          MAKE_FLAGS="GOBUILDTAGS=include_oss \
             VERSIONTAG=${RELEASE_VERSION} \
             PKGVERSIONTAG=${RELEASE_VERSION} \
             TRIVYFLAG=true \
             EXPORTERFLAG=true \
-            GOARCH=arm64 \
-            BUILDPLATFORM=linux/arm64"
+            GOARCH=arm64"
 
-          # 步骤 3: 仅执行构建，不打包
-          # 我们使用 'build' target 来确保所有组件镜像都被编译出来
-          sudo make build $MAKE_FLAGS
+          # 步骤 3: **关键修正** - 首先编译所有 Go 二进制文件
+          echo "--- Step 3.1: Compiling all Go binaries for ARM64 ---"
+          sudo make compile $MAKE_FLAGS
 
-          # 步骤 4: **关键修正** - 为所有构建好的镜像打上 'dev' 标签作为双保险
-          echo "Tagging all built images with 'dev' to pacify the packaging script..."
+          # 步骤 4: 构建所有 Docker 镜像 (现在可以找到已编译的二进制文件了)
+          echo "--- Step 3.2: Building all Docker images ---"
+          sudo make build BUILD_BASE=true BASEIMAGETAG=${RELEASE_VERSION} $MAKE_FLAGS
+
+          # 步骤 5: 为所有构建好的镜像打上 'dev' 标签作为双保险
+          echo "--- Step 3.3: Tagging all built images with 'dev' to pacify the packaging script ---"
           docker images "goharbor/*:${RELEASE_VERSION}" --format "{{.Repository}}:{{.Tag}}" | while read -r image; do
             new_tag="${image%:*}:dev"
             echo "Tagging ${image} as ${new_tag}"
             docker tag "${image}" "${new_tag}"
           done
           
-          # 步骤 5: 现在执行打包，Makefile 无论找哪个标签都能找到
+          # 步骤 6: 现在执行打包，Makefile 无论找哪个标签都能找到
+          echo "--- Step 3.4: Packaging all components ---"
           sudo make package_offline $MAKE_FLAGS
           sudo make package_online $MAKE_FLAGS
           
-          # 步骤 6: 重命名最终产物
+          # 步骤 7: 重命名最终产物
           mv "harbor-offline-installer-${RELEASE_VERSION}.tgz" "harbor-offline-installer-${PACKAGE_FILENAME_VERSION}.tgz"
           mv "harbor-online-installer-${RELEASE_VERSION}.tgz" "harbor-online-installer-${PACKAGE_FILENAME_VERSION}.tgz"
 
