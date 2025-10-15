@@ -98,19 +98,17 @@ jobs:
             fi
           done
 
-      - name: Build ARM64 Package
+      - name: Build and Package Harbor for ARM64
         id: build_package
         working-directory: src/github.com/goharbor/harbor
         run: |
           set -ex
           
-          # 步骤 1: 读取官方版本号, 这是所有内部镜像的统一标签
+          # 步骤 1: 准备版本号
           RELEASE_VERSION=$(cat ./VERSION)
-          
-          # 步骤 2: 定义最终产物的文件名
           PACKAGE_FILENAME_VERSION="${RELEASE_VERSION}-build.${GITHUB_RUN_NUMBER}-arm64"
 
-          # 步骤 3: 构造 make 命令参数, 确保所有内部标签都使用官方版本号
+          # 步骤 2: 构造 make 命令参数, 使用官方版本号进行构建
           MAKE_FLAGS="BUILD_BASE=true \
             GOBUILDTAGS=include_oss \
             BASEIMAGETAG=${RELEASE_VERSION} \
@@ -120,16 +118,24 @@ jobs:
             EXPORTERFLAG=true \
             GOARCH=arm64 \
             BUILDPLATFORM=linux/arm64"
-          
-          if [[ "${{ github.event.inputs.push_images }}" == "true" ]]; then
-            MAKE_FLAGS+=" PUSHBASEIMAGE=true REGISTRYUSER=${{ secrets.DOCKER_HUB_USERNAME }}"
-          fi
 
-          # 步骤 4: 执行构建
+          # 步骤 3: 仅执行构建，不打包
+          # 我们使用 'build' target 来确保所有组件镜像都被编译出来
+          sudo make build $MAKE_FLAGS
+
+          # 步骤 4: **关键修正** - 为所有构建好的镜像打上 'dev' 标签作为双保险
+          echo "Tagging all built images with 'dev' to pacify the packaging script..."
+          docker images "goharbor/*:${RELEASE_VERSION}" --format "{{.Repository}}:{{.Tag}}" | while read -r image; do
+            new_tag="${image%:*}:dev"
+            echo "Tagging ${image} as ${new_tag}"
+            docker tag "${image}" "${new_tag}"
+          done
+          
+          # 步骤 5: 现在执行打包，Makefile 无论找哪个标签都能找到
           sudo make package_offline $MAKE_FLAGS
           sudo make package_online $MAKE_FLAGS
           
-          # 步骤 5: 将 make 生成的、使用官方版本号命名的包, 重命名为我们需要的、带详细信息的文件名
+          # 步骤 6: 重命名最终产物
           mv "harbor-offline-installer-${RELEASE_VERSION}.tgz" "harbor-offline-installer-${PACKAGE_FILENAME_VERSION}.tgz"
           mv "harbor-online-installer-${RELEASE_VERSION}.tgz" "harbor-online-installer-${PACKAGE_FILENAME_VERSION}.tgz"
 
@@ -138,7 +144,6 @@ jobs:
           
           echo "offline_bundle_path=$PWD/$OFFLINE_BUNDLE" >> $GITHUB_OUTPUT
           echo "online_bundle_path=$PWD/$ONLINE_BUNDLE" >> $GITHUB_OUTPUT
-          # 用于推送镜像的资产版本, 也必须使用官方版本号
           echo "assets_version=${RELEASE_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Upload build artifacts to GitHub
